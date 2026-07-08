@@ -7,104 +7,46 @@ export async function GET(request: NextRequest) {
   const alerts: { icon: string; text: string; sub: string; tone: "urgent" | "warn" | "info" }[] = [];
   const now = new Date();
 
-  // 1. Gastos fijos — overdue or upcoming
-  const subs = await prisma.recurringPayment.findMany({ where: { userId, deletedAt: null, active: true } });
+  // 1. Gastos fijos + 2. Tarjetas — unified ledger query
+  const { getPendingPayments } = await import("@/src/lib/ledger");
+  const { getPaymentStatus } = await import("@/src/lib/cycle");
+  const pendingResults = await getPendingPayments(userId);
+  const pendingSubs = pendingResults.filter((p) => p.source === "sub");
 
-  for (const s of subs) {
-    const dueDate = new Date(s.dueDate);
-    const deadDate = new Date(s.deadline);
-    const dueIn = Math.ceil((dueDate.getTime() - now.getTime()) / 86400000);
-    const deadIn = Math.ceil((deadDate.getTime() - now.getTime()) / 86400000);
+  for (const p of pendingSubs) {
+    const dueDay = parseInt(p.dueDate.split("-")[2]) || 1;
+    const deadlineDay = parseInt(p.deadline.split("-")[2]) || dueDay;
+    const status = getPaymentStatus(dueDay, deadlineDay, now);
 
-    if (dueIn < 0) {
+    if (status.status === "overdue") {
       alerts.push({
-        icon: "AlertCircle", text: `Pago vencido: ${s.name}`,
-        sub: `Venció hace ${Math.abs(dueIn)} días — ${toNumber(s.amount).toLocaleString("es-CO")}`,
+        icon: "AlertCircle", text: `${p.name}`,
+        sub: `${status.label} — ${p.amount > 0 ? toNumber(p.amount).toLocaleString("es-CO") : ""}`,
         tone: "urgent",
       });
-    } else if (dueIn === 0) {
+    } else if (status.status === "in_window" && status.daysRemaining <= 3) {
       alerts.push({
-        icon: "AlertTriangle", text: `Pago hoy: ${s.name}`,
-        sub: `${toNumber(s.amount).toLocaleString("es-CO")} — vence hoy`,
-        tone: "warn",
-      });
-    } else if (dueIn <= 3) {
-      alerts.push({
-        icon: "AlertTriangle", text: `Pago próximo: ${s.name}`,
-        sub: `Vence en ${dueIn} días — ${toNumber(s.amount).toLocaleString("es-CO")}`,
-        tone: "warn",
-      });
-    }
-
-    if (deadIn < 0 && deadIn !== dueIn) {
-      alerts.push({
-        icon: "AlertCircle", text: `Plazo vencido: ${s.name}`,
-        sub: `El plazo límite venció hace ${Math.abs(deadIn)} días`,
-        tone: "urgent",
+        icon: "AlertTriangle", text: `${p.name}`,
+        sub: `${status.label} — ${p.amount > 0 ? toNumber(p.amount).toLocaleString("es-CO") : ""}`,
+        tone: status.daysRemaining <= 1 ? "urgent" : "warn",
       });
     }
   }
 
-  // 2. Credit cards — same logic as dashboard "Próximos pagos"
-  const cards = await prisma.creditCard.findMany({ where: { userId, deletedAt: null } });
+  // 2. Credit cards — same pendingPayments call, already loaded
+  const pendingCards = pendingResults.filter((p) => p.source === "card");
+  for (const p of pendingCards) {
+    const dueDay = parseInt(p.dueDate.split("-")[2]) || 1;
+    const deadlineDay = parseInt(p.deadline.split("-")[2]) || dueDay;
+    const status = getPaymentStatus(dueDay, deadlineDay, now);
 
-  // Check which cards already have a payment this cycle
-  const cardPayments = await prisma.transaction.findMany({
-    where: {
-      userId, deletedAt: null, type: "expense",
-      cardId: { not: null },
-      description: { contains: "Pago" },
-      date: { gte: new Date(now.getFullYear(), now.getMonth() - 1, 1) },
-    },
-    select: { cardId: true, date: true },
-  });
-
-  const nextDayDate = (day: number) => {
-    let d = new Date(now.getFullYear(), now.getMonth(), Math.min(day, new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()));
-    while (d.getTime() < now.getTime() - 86400000) d.setMonth(d.getMonth() + 1);
-    return d;
-  };
-
-  for (const c of cards) {
-    if (c.type !== "credito" || !c.cutDay || !c.dueDay) continue;
-
-    const cutDate = nextDayDate(c.cutDay);
-    const dueDate = nextDayDate(c.dueDay);
-
-    // Check if already paid since last cut
-    const lastCutPassed = new Date(now.getFullYear(), now.getMonth(), c.cutDay);
-    if (lastCutPassed.getTime() > now.getTime()) lastCutPassed.setMonth(lastCutPassed.getMonth() - 1);
-    const alreadyPaid = cardPayments.some(
-      (p: { cardId: string | null; date: Date }) => p.cardId === c.id && new Date(p.date) >= lastCutPassed
-    );
-
-    const daysUntilCut = Math.ceil((cutDate.getTime() - now.getTime()) / 86400000);
-    const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / 86400000);
-
-    // Cut alert
-    if (daysUntilCut >= 0 && daysUntilCut <= 7) {
+    if (status.status === "overdue") {
+      alerts.push({ icon: "AlertCircle", text: `${p.name}`, sub: status.label, tone: "urgent" });
+    } else if (status.status === "in_window" && status.daysRemaining <= 7) {
       alerts.push({
-        icon: "CreditCard", text: `Corte próximo: ${c.name}`,
-        sub: daysUntilCut === 0 ? "La fecha de corte es hoy" : `Fecha de corte en ${daysUntilCut} días (día ${c.cutDay})`,
-        tone: daysUntilCut <= 2 ? "warn" : "info",
-      });
-    }
-
-    // Due alert (only if not already paid)
-    if (!alreadyPaid && daysUntilDue >= 0 && daysUntilDue <= 7) {
-      alerts.push({
-        icon: "Banknote", text: `Pago próximo: ${c.name}`,
-        sub: daysUntilDue === 0 ? "La fecha límite de pago es hoy" : `Fecha límite en ${daysUntilDue} días (día ${c.dueDay})`,
-        tone: daysUntilDue <= 2 ? "urgent" : "warn",
-      });
-    }
-
-    // Overdue alert (only if not already paid)
-    if (!alreadyPaid && daysUntilDue < 0 && daysUntilDue >= -30) {
-      alerts.push({
-        icon: "AlertCircle", text: `Pago vencido: ${c.name}`,
-        sub: `La fecha límite venció hace ${Math.abs(daysUntilDue)} días (día ${c.dueDay})`,
-        tone: "urgent",
+        icon: "Banknote", text: `${p.name}`,
+        sub: status.label,
+        tone: status.daysRemaining <= 2 ? "urgent" : "warn",
       });
     }
   }

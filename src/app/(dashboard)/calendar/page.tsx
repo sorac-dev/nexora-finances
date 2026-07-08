@@ -8,9 +8,10 @@ import { CardSkeleton } from "@/src/components/ui/skeleton";
 import { toast } from "sonner";
 
 interface CalendarEvent {
-  id: string; day: number; label: string;
+  id?: string; day: number; label: string;
   type: "corte" | "limite" | "tarjeta_corte" | "tarjeta_pago" | "meta";
   details?: string; icon: string; color: string;
+  paid?: boolean; statusLabel?: string;
 }
 
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -46,51 +47,11 @@ export default function CalendarPage() {
   const loadEvents = useCallback(async () => {
     setLoading(true);
     try {
-      const all: CalendarEvent[] = [];
-      // Gastos fijos
-      try {
-        const r = await fetch("/api/subscriptions");
-        if (r.ok) {
-          const subs = await r.json();
-          subs.forEach((s: { id: string; name: string; dueDate: string; deadline: string; icon: string }) => {
-            const cutDay = parseInt(s.dueDate?.split("-")[2]) || 1;
-            const limitDay = parseInt(s.deadline?.split("-")[2]) || 1;
-            all.push({ id: `${s.id}-cut`, day: cutDay, label: s.name, type: "corte", details: "Día de corte", icon: s.icon, color: "#FF9F43" });
-            if (limitDay !== cutDay) all.push({ id: `${s.id}-limit`, day: limitDay, label: s.name, type: "limite", details: "Día límite", icon: "AlertTriangle", color: "#FF6B6B" });
-          });
-        }
-      } catch {}
-      // Tarjetas
-      try {
-        const r = await fetch("/api/cards");
-        if (r.ok) {
-          const cards = await r.json();
-          cards.forEach((c: { id: string; name: string; cutDay: number; dueDay: number; type: string; icon: string }) => {
-            if (c.type === "credito") {
-              if (c.cutDay) all.push({ id: `${c.id}-cut`, day: c.cutDay, label: c.name, type: "tarjeta_corte", details: "Fecha de corte", icon: c.icon, color: "#0A84FF" });
-              if (c.dueDay) all.push({ id: `${c.id}-due`, day: c.dueDay, label: c.name, type: "tarjeta_pago", details: "Fecha límite de pago", icon: "Banknote", color: "#8B5CF6" });
-            }
-          });
-        }
-      } catch {}
-      // Metas
-      try {
-        const r = await fetch("/api/goals");
-        if (r.ok) {
-          const goals = await r.json();
-          goals.forEach((g: { id: string; name: string; date: string; icon: string }) => {
-            if (g.date) {
-              const parts = g.date.split(" ");
-              const mIdx = MONTHS.findIndex((mo) => mo.startsWith(parts[0]));
-              if (mIdx >= 0) all.push({ id: `${g.id}-goal`, day: 15, label: g.name, type: "meta", details: `Meta: ${g.date}`, icon: g.icon, color: "#34C759" });
-            }
-          });
-        }
-      } catch {}
-      setEvents(all);
+      const r = await fetch(`/api/calendar?year=${year}&month=${month}`);
+      if (r.ok) setEvents(await r.json());
     } catch { toast.error("Error al cargar"); }
     finally { setLoading(false); }
-  }, []);
+  }, [year, month]);
 
   useEffect(() => { loadEvents(); }, [loadEvents]);
 
@@ -195,13 +156,18 @@ export default function CalendarPage() {
                   </div>
                   {evts.map((e) => (
                     <div key={e.id} className="list-row" style={{ padding:"8px 0" }}>
-                      <div className="icon-circ" style={{ background:"var(--glass-strong)", width:36, height:36, borderRadius:10 }}>
-                        <Icon name={e.icon} size={18} />
+                      <div className="icon-circ" style={{ background: `${e.color}18`, width:36, height:36, borderRadius:10 }}>
+                        <Icon name={e.paid ? "CheckCircle" : e.icon} size={18} color={e.color} />
                       </div>
                       <div className="col" style={{ flex:1 }}>
                         <span className="txt-strong" style={{ fontSize:13 }}>{e.label}</span>
-                        {e.details && <span className="txt-dim" style={{ fontSize:11 }}>{e.details}</span>}
+                        {e.details && (
+                          <span style={{ fontSize:11, color: e.color, fontWeight: e.paid ? 600 : 400 }}>
+                            {e.details}
+                          </span>
+                        )}
                       </div>
+                      {e.paid && <Icon name="CheckCircle" size={14} color="var(--c-save)" />}
                     </div>
                   ))}
                 </div>

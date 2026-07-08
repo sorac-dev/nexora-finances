@@ -62,29 +62,54 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const userId = await getUserId(request);
   const body = await request.json();
+  const { subscriptionId } = body;
+
   let account = await prisma.financialAccount.findFirst({ where: { userId, deletedAt: null } });
   if (!account) account = await prisma.financialAccount.create({ data: { userId, name: "Cuenta Principal", type: "cuenta_bancaria", balance: 0, color: "#3B82F6", icon: "Building2" } });
 
   let category = await prisma.category.findFirst({ where: { userId, name: body.cat || "Otros", deletedAt: null } });
   if (!category) category = await prisma.category.findFirst({ where: { userId, name: "Otros", deletedAt: null } });
 
-  const amount = Number(body.amount) || 0;
-  const tx = await prisma.transaction.create({
-    data: { userId, type: body.type || "expense", amount, description: body.name || body.description || "Movimiento", date: new Date(body.date || new Date()), installments: Number(body.installments) || 1, categoryId: category?.id || "", accountId: account.id, cardId: body.cardId || null },
-  });
-
-  // Atomic update — prevents race conditions. Uses raw SQL for reliability.
-  if (body.type === "income") {
-    await prisma.$executeRawUnsafe(
-      `UPDATE FinancialAccount SET balance = balance + ? WHERE id = ?`,
-      amount, account.id
-    );
-  } else {
-    await prisma.$executeRawUnsafe(
-      `UPDATE FinancialAccount SET balance = balance - ? WHERE id = ?`,
-      amount, account.id
-    );
+  // Calculate cycleKey for subscription/card payments
+  // cycleKey represents the CURRENT cycle (the one being paid), not the next future one
+  let cycleKey: string | null = null;
+  if (subscriptionId) {
+    const sub = await prisma.recurringPayment.findFirst({ where: { id: subscriptionId, userId } });
+    if (sub) {
+      const firstDue = sub.firstDueDate || sub.dueDate;
+      const { getCycleKey } = await import("@/src/lib/ledger");
+      // The cycle being paid is the most recent due date (not the next one)
+      // e.g., if today is July 8 and due day is 1, the cycle being paid is July (2026-07)
+      const now = new Date();
+      const dayOfMonth = new Date(firstDue).getDate();
+      let currentCycle = new Date(now.getFullYear(), now.getMonth(), dayOfMonth);
+      if (currentCycle.getTime() > now.getTime()) currentCycle.setMonth(currentCycle.getMonth() - 1);
+      cycleKey = getCycleKey(currentCycle, sub.frequency);
+    }
+  } else if (body.cardId && body.type === "expense") {
+    const card = await prisma.creditCard.findFirst({ where: { id: body.cardId, userId } });
+    if (card?.cutDay) {
+      const now = new Date();
+      // Current cycle starts at the most recent cut date
+      let cutDate = new Date(now.getFullYear(), now.getMonth(), card.cutDay);
+      if (cutDate.getTime() > now.getTime()) cutDate.setMonth(cutDate.getMonth() - 1);
+      cycleKey = `${cutDate.getFullYear()}-${String(cutDate.getMonth() + 1).padStart(2, "0")}-${String(cutDate.getDate()).padStart(2, "0")}`;
+    }
   }
 
-  return NextResponse.json({ id: tx.id, type: tx.type, name: tx.description, cat: category?.name || "Otro", amount: toNumber(tx.amount), date: "Hoy", icon: category?.icon || "Package" }, { status: 201 });
+  const amount = Number(body.amount) || 0;
+  await prisma.transaction.create({
+    data: {
+      userId, type: body.type || "expense", amount,
+      description: body.name || body.description || "Movimiento",
+      date: new Date(body.date || new Date()),
+      installments: Number(body.installments) || 1,
+      categoryId: category?.id || "", accountId: account.id,
+      cardId: body.cardId || null,
+      subscriptionId: subscriptionId || null,
+      cycleKey,
+    },
+  });
+
+  return NextResponse.json({ id: "", status: "ok" }, { status: 201 });
 }

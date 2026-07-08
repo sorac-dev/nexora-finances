@@ -3,31 +3,21 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useTheme } from "@/src/hooks/use-theme";
-import { Fab } from "@/src/components/layout/fab";
-import { ProgressBar } from "@/src/components/ui/progress-bar";
+import { useUIStore } from "@/src/stores/ui.store";
+import { TopNav } from "@/src/components/layout/top-nav";
+import { Button } from "@/src/components/ui/button";
 import { CardSkeleton, ListSkeleton } from "@/src/components/ui/skeleton";
+import { ProgressBar } from "@/src/components/ui/progress-bar";
 import { Icon } from "@/src/components/ui/icon";
 import { fmt, pct } from "@/src/utils/format";
-import { fmtDateShort } from "@/src/lib/date";
-import { useUIStore } from "@/src/stores/ui.store";
+import { getPaymentStatus as ledger_getPaymentStatus } from "@/src/lib/cycle";
 
 interface Overview {
   income: number; expenses: number; balance: number;
-  upcomingPayments: { id: string; name: string; amount: number; dueDate: string; deadline: string; icon: string; source: string }[];
+  pendingPayments: { id: string; name: string; amount: number; dueDate: string; deadline: string; icon: string; source: string }[];
   goals: { id: string; name: string; icon: string; target: number; saved: number; color: string }[];
-  userName: string;
-  subscriptionsTotal: number;
-  cardsCount: number;
-}
-
-function monthlyIncome(sources: { amount: number; frequency: string }[]): number {
-  const days = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
-  return sources.reduce((s, src) => {
-    if (src.frequency === "Diario") return s + src.amount * days;
-    if (src.frequency === "Semanal") return s + src.amount * 4;
-    if (src.frequency === "Quincenal") return s + src.amount * 2;
-    return s + src.amount;
-  }, 0);
+  userName: string; cardsCount: number;
+  subscriptionsTotal?: number;
 }
 
 export default function DashboardPage() {
@@ -36,108 +26,21 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [hasPin, setHasPin] = useState(true);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
-  const showOpeningModal = useUIStore((s) => s.showOpeningModal);
-  const setShowOpeningModal = useUIStore((s) => s.setShowOpeningModal);
 
   const load = useCallback(async () => {
     try {
-      const [txsRes, subsRes, goalsRes, profileRes, cardsRes, pinRes] = await Promise.all([
-        fetch("/api/transactions"),
-        fetch("/api/subscriptions"),
-        fetch("/api/goals"),
-        fetch("/api/user/profile"),
-        fetch("/api/cards"),
+      const [dashRes, pinRes] = await Promise.all([
+        fetch("/api/dashboard"),
         fetch("/api/user/security/pin"),
       ]);
-
-      // Normalize a day number to the next occurrence this month
-      const now = new Date();
-      const nextDayDate = (day: number) => {
-        let d = new Date(now.getFullYear(), now.getMonth(), Math.min(day, new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()));
-        while (d.getTime() < now.getTime() - 86400000) d.setMonth(d.getMonth() + 1);
-        return d.toISOString().split("T")[0];
-      };
-
-      const txs = txsRes.ok ? await txsRes.json() : { data: [] };
-      const subs = subsRes.ok ? (await subsRes.json()).data || [] : [];
-      const goals = goalsRes.ok ? await goalsRes.json() : [];
-      const profile = profileRes.ok ? await profileRes.json() : { name: "Usuario" };
-      const cards = cardsRes.ok ? await cardsRes.json() : [];
+      if (dashRes.ok) {
+        const d = await dashRes.json();
+        setWalletBalance(d.balance);
+        setData(d);
+      }
       if (pinRes.ok) { const d = await pinRes.json(); setHasPin(d.hasPin); }
-
-      // Start with estimates from paginated data
-      let monthIncome = txs.data.filter((t: { type: string }) => t.type === "income").reduce((s: number, t: { amount: number }) => s + t.amount, 0);
-      let monthExpenses = txs.data.filter((t: { type: string }) => t.type === "expense").reduce((s: number, t: { amount: number }) => s + t.amount, 0);
-
-      // Fetch REAL totals from accounts API (SQL aggregation — not limited by pagination)
-      try {
-        const accRes = await fetch("/api/accounts");
-        if (accRes.ok) {
-          const acc = await accRes.json();
-          if (acc.balance !== undefined) setWalletBalance(Number(acc.balance));
-          if (acc.monthIncome !== undefined) monthIncome = Number(acc.monthIncome);
-          if (acc.monthExpenses !== undefined) monthExpenses = Number(acc.monthExpenses);
-        }
-      } catch {}
-
-      const allTxs: { name: string; type: string; cardId: string | null; date: string }[] = txs.data;
-
-      // Subscriptions — only show if not paid this cycle
-      const activeSubs = subs.filter((s: { active: boolean }) => s.active);
-      const upcomingSubs = activeSubs.filter((s: { name: string; dueDate: string; amount: number }) => {
-        const dueDate = new Date(s.dueDate + "T00:00:00");
-        const cycleStart = new Date(dueDate);
-        cycleStart.setDate(cycleStart.getDate() - 30);
-        // Check if a payment was already recorded for this subscription in this cycle
-        const paid = allTxs.some((t: { name: string; type: string; date: string }) =>
-          t.type === "expense" && t.name === s.name && new Date(t.date) >= cycleStart
-        );
-        return !paid;
-      }).slice(0, 5).map((s: { id: string; name: string; amount: number; dueDate: string; deadline: string; icon: string }) => ({
-        id: s.id, name: s.name, amount: s.amount, dueDate: s.dueDate, deadline: s.deadline, icon: s.icon || "FileText", source: "sub" as const,
-      }));
-
-      // Credit cards — only show when in payment window (cut passed, due not passed)
-      const upcomingCards: typeof upcomingSubs = [];
-      const todayDay = now.getDate();
-      cards.forEach((c: { id: string; name: string; type: string; cutDay: number; dueDay: number; icon: string }) => {
-        if (c.type !== "credito" || !c.cutDay || !c.dueDay) return;
-        // Only show if we're between cut and due (payment window)
-        if (todayDay < c.cutDay) return; // cut hasn't happened yet
-        if (todayDay > c.dueDay) return; // payment window closed
-
-        // Check if already paid this cycle
-        const cutDate = new Date(now.getFullYear(), now.getMonth(), c.cutDay);
-        if (cutDate.getTime() > now.getTime()) cutDate.setMonth(cutDate.getMonth() - 1);
-        const alreadyPaid = allTxs.some((t: { name: string; type: string; cardId: string | null; date: string }) =>
-          t.type === "expense" && t.cardId === c.id && t.name.toLowerCase().includes("pago") && new Date(t.date) >= cutDate
-        );
-        if (alreadyPaid) return;
-
-        upcomingCards.push({
-          id: c.id, name: c.name, amount: 0,
-          dueDate: nextDayDate(c.cutDay), deadline: nextDayDate(c.dueDay),
-          icon: c.icon || "CreditCard", source: "card" as const,
-        });
-      });
-
-      const upcoming = [...upcomingSubs, ...upcomingCards].sort((a, b) => a.dueDate.localeCompare(b.dueDate)).slice(0, 6);
-      const subsTotal = activeSubs.reduce((s: number, x: { amount: number }) => s + (x.amount || 0), 0);
-
-      setData({
-        income: monthIncome,
-        expenses: monthExpenses,
-        balance: monthIncome - monthExpenses,
-        upcomingPayments: upcoming,
-        goals: goals.slice(0, 3),
-        userName: profile.name || "Usuario",
-        subscriptionsTotal: subsTotal,
-        cardsCount: cards.length,
-      });
     } catch { /* silent */ }
     finally { setLoading(false); }
-
-    // Notifications are handled by systemd timer (see systemd/ folder)
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -146,7 +49,6 @@ export default function DashboardPage() {
   if (!data) return <div className="txt-dim" style={{ textAlign: "center", padding: 40 }}>Error al cargar</div>;
 
   const balanceColor = data.balance >= 0 ? "var(--c-save)" : "#FF6B6B";
-  const spentPct = data.income > 0 ? pct(data.expenses, data.income) : 0;
 
   return (
     <>
@@ -167,12 +69,10 @@ export default function DashboardPage() {
       </div>
 
       {/* Balance Card */}
-      <div className="glass-strong glass-card" style={{
-        marginTop: 14, background: "linear-gradient(135deg, rgba(10,132,255,0.15), rgba(139,92,246,0.12))",
-      }}>
+      <div className="glass-strong glass-card" style={{ marginTop: 14, background: "linear-gradient(135deg, rgba(10,132,255,0.15), rgba(139,92,246,0.12))" }}>
         <div className="txt-dim" style={{ fontSize: 12 }}>Saldo total</div>
-        <div style={{ fontSize: 36, fontWeight: 800, letterSpacing: -1, margin: "4px 0 14px", color: (walletBalance ?? data.balance) >= 0 ? "var(--c-save)" : "#FF6B6B" }}>
-          {(walletBalance ?? data.balance) >= 0 ? "" : "-"}{fmt(Math.abs(walletBalance ?? data.balance))}
+        <div style={{ fontSize: 36, fontWeight: 800, letterSpacing: -1, margin: "4px 0 14px", color: balanceColor }}>
+          {data.balance >= 0 ? "" : "-"}{fmt(Math.abs(data.balance))}
         </div>
         <div className="row" style={{ marginBottom: 10 }}>
           <div style={{ fontSize: 11, color: "var(--text-faint)" }}>Ingresos del mes: <span className="amount-pos">{fmt(data.income)}</span></div>
@@ -181,15 +81,13 @@ export default function DashboardPage() {
         <div className="row">
           <div className="col">
             <div className="txt-dim" style={{ fontSize: 11 }}>Gastos fijos</div>
-            <div className="txt-strong" style={{ fontSize: 16, color: "#FF9F43" }}>{fmt(data.subscriptionsTotal)}</div>
+            <div className="txt-strong" style={{ fontSize: 14, color: "#FF9F43" }}>{fmt(data.subscriptionsTotal || 0)}</div>
+          </div>
+          <div className="col" style={{ alignItems: "flex-end" }}>
+            <div className="txt-dim" style={{ fontSize: 11 }}>Tarjetas</div>
+            <div className="txt-strong" style={{ fontSize: 14 }}>{data.cardsCount}</div>
           </div>
         </div>
-        {data.income > 0 && (
-          <div style={{ marginTop: 12 }}>
-            <ProgressBar percent={Math.min(spentPct, 100)} color={spentPct > 80 ? "#FF6B6B" : "var(--c-blue)"} />
-            <div className="txt-dim" style={{ fontSize: 11, marginTop: 4 }}>{spentPct}% de tus ingresos gastado este mes</div>
-          </div>
-        )}
       </div>
 
       {/* Quick Stats Row */}
@@ -197,27 +95,21 @@ export default function DashboardPage() {
         <Link href="/gastos-fijos" style={{ flex: 1, textDecoration: "none" }}>
           <div className="glass" style={{ padding: 14, borderRadius: 16, textAlign: "center" }}>
             <Icon name="ClipboardList" size={20} color="#FF9F43" />
-            <div className="txt-strong" style={{ fontSize: 15, marginTop: 4 }}>
-              {data.upcomingPayments.length}
-            </div>
+            <div className="txt-strong" style={{ fontSize: 15, marginTop: 4 }}>{data.pendingPayments.length}</div>
             <div className="txt-faint" style={{ fontSize: 10 }}>Pagos pendientes</div>
           </div>
         </Link>
         <Link href="/goals" style={{ flex: 1, textDecoration: "none" }}>
           <div className="glass" style={{ padding: 14, borderRadius: 16, textAlign: "center" }}>
             <Icon name="Target" size={20} color="#34C759" />
-            <div className="txt-strong" style={{ fontSize: 15, marginTop: 4 }}>
-              {data.goals.length}
-            </div>
+            <div className="txt-strong" style={{ fontSize: 15, marginTop: 4 }}>{data.goals.length}</div>
             <div className="txt-faint" style={{ fontSize: 10 }}>Metas</div>
           </div>
         </Link>
         <Link href="/cards" style={{ flex: 1, textDecoration: "none" }}>
           <div className="glass" style={{ padding: 14, borderRadius: 16, textAlign: "center" }}>
             <Icon name="CreditCard" size={20} color="#8B5CF6" />
-            <div className="txt-strong" style={{ fontSize: 15, marginTop: 4 }}>
-              {data.cardsCount}
-            </div>
+            <div className="txt-strong" style={{ fontSize: 15, marginTop: 4 }}>{data.cardsCount}</div>
             <div className="txt-faint" style={{ fontSize: 10 }}>Tarjetas</div>
           </div>
         </Link>
@@ -232,67 +124,34 @@ export default function DashboardPage() {
             border: "1px solid rgba(255,159,67,0.2)",
             display: "flex", alignItems: "center", gap: 12,
           }}>
-            <div style={{
-              width: 42, height: 42, borderRadius: 14, flexShrink: 0,
-              background: "rgba(255,159,67,0.15)", display: "flex",
-              alignItems: "center", justifyContent: "center",
-            }}>
+            <div style={{ width: 42, height: 42, borderRadius: 14, flexShrink: 0, background: "rgba(255,159,67,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <Icon name="Shield" size={22} color="#FF9F43" />
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700, fontSize: 14, color: "#FF9F43" }}>
-                Configura tu PIN de seguridad
-              </div>
-              <div style={{ fontSize: 12, color: "var(--text-dim)", marginTop: 2 }}>
-                Protege tus eliminaciones y datos con un PIN de 4 dígitos
-              </div>
+              <div style={{ fontWeight: 700, fontSize: 14, color: "#FF9F43" }}>Configura tu PIN de seguridad</div>
+              <div style={{ fontSize: 12, color: "var(--text-dim)", marginTop: 2 }}>Protege tus eliminaciones y datos con un PIN de 4 dígitos</div>
             </div>
             <Icon name="ChevronRight" size={16} color="#FF9F43" />
           </div>
         </Link>
       )}
 
-      {/* Upcoming Payments */}
-      {data.upcomingPayments.length > 0 && (
+      {/* Pending Payments */}
+      {data.pendingPayments.length > 0 && (
         <>
           <div className="row" style={{ marginTop: 16 }}>
             <div className="eyebrow" style={{ margin: 0 }}>Pagos pendientes</div>
             <Link href="/calendar" className="txt-dim" style={{ fontSize: 12, textDecoration: "none" }}>Calendario</Link>
           </div>
           <div className="glass-card">
-            {data.upcomingPayments.map((p, i) => {
-              let statusColor = "var(--text-dim)";
-              let statusText = "";
-              try {
-                if (p.source === "card") {
-                  // Credit card: show payment window availability
-                  const limitDay = parseInt(p.deadline.split("-")[2]) || 1;
-                  const now = new Date();
-                  let limitDate = new Date(now.getFullYear(), now.getMonth(), limitDay);
-                  if (limitDate.getTime() < now.getTime() - 86400000) {
-                    limitDate.setMonth(limitDate.getMonth() + 1);
-                  }
-                  const limitDays = Math.ceil((limitDate.getTime() - now.getTime()) / 86400000);
-                  if (limitDays <= 0) { statusColor = "#FF6B6B"; statusText = "Pago vencido"; }
-                  else if (limitDays === 1) { statusColor = "#FF6B6B"; statusText = "Ultimo dia para pagar"; }
-                  else if (limitDays <= 3) { statusColor = "#FF6B6B"; statusText = `Pagar antes de ${limitDays} dias`; }
-                  else { statusColor = "#FF9F43"; statusText = `Disponible ${limitDays} dias para pagar`; }
-                } else {
-                  // Subscription: show due date status
-                  const dueDay = new Date(p.dueDate + "T00:00:00");
-                  const now = new Date();
-                  const daysUntil = Math.ceil((dueDay.getTime() - now.getTime()) / 86400000);
-                  if (daysUntil < 0) { statusColor = "#FF6B6B"; statusText = `Vencido hace ${Math.abs(daysUntil)}d`; }
-                  else if (daysUntil === 0) { statusColor = "#FF9F43"; statusText = "Vence hoy"; }
-                  else if (daysUntil === 1) { statusColor = "#FF9F43"; statusText = "Vence manana"; }
-                  else if (daysUntil <= 3) { statusColor = "#FF9F43"; statusText = `Vence en ${daysUntil} dias`; }
-                  else { statusColor = "var(--text-dim)"; statusText = `Vence en ${daysUntil} dias`; }
-                }
-              } catch { statusText = ""; }
-
+            {data.pendingPayments.map((p, i) => {
+              // Extract due day and deadline day from the dates
+              const dueDay = parseInt(p.dueDate.split("-")[2]) || 1;
+              const deadlineDay = parseInt(p.deadline.split("-")[2]) || dueDay;
+              const { label: statusText, color: statusColor } = ledger_getPaymentStatus(dueDay, deadlineDay);
               const linkHref = p.source === "card" ? `/cards/${p.id}` : `/gastos-fijos?open=${p.id}`;
               return (
-                <Link key={i} href={linkHref} className="list-row" style={{ textDecoration: "none", color: "inherit", ...(i === data.upcomingPayments.length - 1 ? { borderBottom: "none" } : undefined) }}>
+                <Link key={i} href={linkHref} className="list-row" style={{ textDecoration: "none", color: "inherit", ...(i === data.pendingPayments.length - 1 ? { borderBottom: "none" } : undefined) }}>
                   <div className="icon-circ" style={{ background: "var(--glass-strong)" }}>
                     <Icon name={p.icon || "FileText"} size={20} />
                   </div>
@@ -319,43 +178,22 @@ export default function DashboardPage() {
                 <div className="glass-card" style={{ marginBottom: 8, cursor: "pointer" }}>
                   <div className="row">
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <Icon name={g.icon || "Target"} size={22} color={g.color || "var(--c-blue)"} />
-                      <span className="txt-strong">{g.name}</span>
+                      <div className="icon-circ" style={{ background: `${g.color}22` }}>
+                        <Icon name={g.icon} size={20} color={g.color} />
+                      </div>
+                      <div>
+                        <div className="txt-strong" style={{ fontSize: 14 }}>{g.name}</div>
+                        <div className="txt-dim" style={{ fontSize: 11 }}>{fmt(g.saved)} de {fmt(g.target)}</div>
+                      </div>
                     </div>
-                    <span className="txt-strong">{percent}%</span>
+                    <span style={{ fontWeight: 800, fontSize: 16, color: g.color }}>{percent}%</span>
                   </div>
-                  <ProgressBar percent={percent} color={g.color || "var(--c-blue)"} />
-                  <div className="row">
-                    <span className="txt-dim">{fmt(g.saved)} de {fmt(g.target)}</span>
-                  </div>
+                  <ProgressBar percent={percent} color={g.color} />
                 </div>
               </Link>
             );
           })}
         </>
-      )}
-
-      <Fab href="/movements/new" />
-
-      {/* Opening Modal */}
-      {showOpeningModal && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 9990, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 30 }}
-          onClick={() => setShowOpeningModal(false)}>
-          <div className="modal-card glass-strong" onClick={(e) => e.stopPropagation()}>
-            <div style={{ textAlign: "center" }}>
-              <Icon name="Sun" size={40} color="#FFD60A" />
-              <div style={{ fontSize: 20, fontWeight: 800, margin: "8px 0 4px" }}>Buenos días, {data.userName}</div>
-              <div className="txt-dim" style={{ marginBottom: 16 }}>Esto es un vistazo rápido de tus finanzas:</div>
-              <div className="glass" style={{ padding: 14, borderRadius: 16, marginBottom: 18, textAlign: "left" }}>
-                {data.income > 0 && <div style={{ padding: "6px 0", fontSize: 14, display: "flex", gap: 8 }}><span style={{ color: "var(--c-save)" }}>•</span>Ingresos este mes: {fmt(data.income)}</div>}
-                {data.expenses > 0 && <div style={{ padding: "6px 0", fontSize: 14, display: "flex", gap: 8 }}><span style={{ color: "#FF6B6B" }}>•</span>Gastos este mes: {fmt(data.expenses)}</div>}
-                {data.upcomingPayments.length > 0 && <div style={{ padding: "6px 0", fontSize: 14, display: "flex", gap: 8 }}><span style={{ color: "#FF9F43" }}>•</span>{data.upcomingPayments.length} pagos pendientes</div>}
-                {data.goals.length > 0 && <div style={{ padding: "6px 0", fontSize: 14, display: "flex", gap: 8 }}><span style={{ color: "var(--c-blue)" }}>•</span>{data.goals.length} metas activas</div>}
-              </div>
-              <button className="btn btn-primary" onClick={() => setShowOpeningModal(false)}>Entendido</button>
-            </div>
-          </div>
-        </div>
       )}
     </>
   );

@@ -180,8 +180,10 @@ model Transaction {
   installments Int      @default(1)
   categoryId   String   @db.VarChar(36)
   accountId   String   @db.VarChar(36)
-  cardId      String?  @db.VarChar(36)
-  createdAt   DateTime @default(now())
+  cardId         String?  @db.VarChar(36)
+  subscriptionId String?  @db.VarChar(36)
+  cycleKey       String?  @db.VarChar(20)
+  createdAt      DateTime @default(now())
   updatedAt   DateTime @updatedAt
   deletedAt   DateTime?
 
@@ -189,11 +191,15 @@ model Transaction {
   category Category         @relation(fields: [categoryId], references: [id])
   account  FinancialAccount @relation(fields: [accountId], references: [id])
 
+  subscription  RecurringPayment? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
   @@index([userId])
   @@index([categoryId])
   @@index([accountId])
   @@index([date])
   @@index([userId, deletedAt, date])
+  @@index([subscriptionId, cycleKey, deletedAt])
+  @@index([cardId, cycleKey, deletedAt])
   @@index([userId, deletedAt, cardId])
 }
 
@@ -248,17 +254,20 @@ model RecurringPayment {
   icon      String   @default("FileText") @db.VarChar(50)
   category  String   @default("Servicios") @db.VarChar(100)
   categoryId String?  @db.VarChar(36)
-  isVariable Boolean @default(false)
-  dueDate    DateTime
-  deadline   DateTime
-  active     Boolean @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  deletedAt DateTime?
+  isVariable       Boolean @default(false)
+  dueDate          DateTime
+  deadline         DateTime
+  firstDueDate     DateTime?
+  firstDeadlineDate DateTime?
+  active           Boolean @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  deletedAt        DateTime?
 
-  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  categoryRel Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  events   RecurringEvent[]
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryRel  Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  events       RecurringEvent[]
+  transactions Transaction[]
 
   @@index([userId])
   @@index([dueDate])

@@ -12,12 +12,14 @@ import { CategorySelect } from "@/src/components/ui/category-select";
 import { Icon } from "@/src/components/ui/icon";
 import { PinModal } from "@/src/components/ui/pin-modal";
 import { usePinGuard } from "@/src/hooks/use-pin-guard";
+import { getPaymentStatus } from "@/src/lib/cycle";
 import { fmt } from "@/src/utils/format";
 import { toast } from "sonner";
 
 interface Sub {
   id: string; name: string; amount: number; frequency: string; isVariable?: boolean;
   icon: string; category: string; categoryId?: string; dueDate: string; deadline: string; active: boolean;
+  paidThisCycle?: boolean;
 }
 interface Cat { id: string; name: string; icon: string; color: string; type: string; isDefault: boolean; }
 
@@ -46,7 +48,6 @@ export default function GastosFijosPage() {
   const [selected, setSelected] = useState<Sub | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [paying, setPaying] = useState(false);
-  const [paidThisCycle, setPaidThisCycle] = useState(false);
   const [swipedId, setSwipedId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const { guardWithPin, pinModalProps } = usePinGuard();
@@ -125,25 +126,8 @@ export default function GastosFijosPage() {
     }
   }, [subs]);
 
-  function openDetail(s: Sub) {
-    setSelected(s);
-    setPaidThisCycle(false);
-    // Check if already paid this cycle
-    fetch("/api/transactions?limit=50")
-      .then((r) => r.ok ? r.json() : null)
-      .then((d) => {
-        if (!d?.data) return;
-        const now = new Date();
-        const cycleStart = new Date(now);
-        cycleStart.setDate(cycleStart.getDate() - 35); // covers monthly cycles
-        const paid = d.data.some((t: { name: string; type: string; date: string }) =>
-          t.type === "expense" && t.name === s.name && new Date(t.date) >= cycleStart
-        );
-        setPaidThisCycle(paid);
-      })
-      .catch(() => {});
-  }
-  function closeDetail() { setSelected(null); setPaidThisCycle(false); }
+  function openDetail(s: Sub) { setSelected(s); }
+  function closeDetail() { setSelected(null); }
 
   // ── Create (steps) ──────────────────────────────────────────────
   function startCreate() {
@@ -203,28 +187,26 @@ export default function GastosFijosPage() {
   }
 
   // ── Pay ─────────────────────────────────────────────────────────
-  // NOTE: We no longer advance the due date on payment.
-  // The due date stays fixed (e.g., day 5 of each month).
-  // "Already paid this cycle" is detected by querying transactions.
-  // This way deleting a payment naturally undoes the payment status.
+  // Payments now include subscriptionId so ledger.ts can track them by cycleKey.
+  // No due date advancement needed — the cycle is calculated from firstDueDate.
   async function handleSkip() {
     if (!selected) return;
     setPaying(true);
     try {
-      // Create a $0 transaction to mark this cycle as skipped
       await fetch("/api/transactions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: "expense", amount: 0,
+          name: `Saltado - ${selected.name}`,
           description: `Saltado - ${selected.name}`,
           cat: selected.category,
           date: new Date().toISOString(),
-          method: "Transferencia",
+          subscriptionId: selected.id,
         }),
       });
-      setPaidThisCycle(true);
       toast.success("Pospuesto. No se registra cargo.");
+      await load(1); // refresh list from API
     } catch { toast.error("Error"); }
     finally { setPaying(false); }
   }
@@ -243,31 +225,17 @@ export default function GastosFijosPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: "expense", amount,
+          name: selected.name,
           description: selected.name,
           cat: selected.category,
           date: new Date().toISOString(),
-          method: "Transferencia",
+          subscriptionId: selected.id,
         }),
       });
-      setPaidThisCycle(true);
       toast.success("Pago registrado.");
+      await load(1); // refresh list from API
     } catch { toast.error("Error"); }
     finally { setPaying(false); }
-  }
-
-  async function handleSync() {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/subscriptions/sync", { method: "POST" });
-      if (res.ok) {
-        const d = await res.json();
-        toast.success(`${d.fixed} fechas corregidas`);
-        await load(1);
-      } else {
-        toast.error("Error al sincronizar");
-      }
-    } catch { toast.error("Error"); }
-    finally { setLoading(false); }
   }
 
   async function toggleActive(s: Sub) {
@@ -301,31 +269,17 @@ export default function GastosFijosPage() {
     <>
       <TopNav title="Gastos fijos" backHref="/more" />
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        <Button
-          onClick={startCreate}
-          style={{
-            flex: 1,
-            background: "linear-gradient(135deg, #BF5AF2, #8B5CF6)",
-            color: "#fff", border: "none", fontWeight: 700, fontSize: 15,
-            padding: "14px", borderRadius: 16,
-            boxShadow: "0 4px 16px rgba(139,92,246,0.3)",
-          }}>
-          + Agregar gasto fijo
-        </Button>
-        <button
-          onClick={handleSync}
-          title="Sincronizar fechas de vencimiento"
-          style={{
-            width: 48, height: 48, borderRadius: 16,
-            background: "var(--glass)", border: "1px solid var(--glass-border-strong)",
-            color: "var(--text-dim)", cursor: "pointer",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            flexShrink: 0,
-          }}>
-          <Icon name="RefreshCw" size={18} />
-        </button>
-      </div>
+      <Button
+        onClick={startCreate}
+        style={{
+          width: "100%", marginBottom: 16,
+          background: "linear-gradient(135deg, #BF5AF2, #8B5CF6)",
+          color: "#fff", border: "none", fontWeight: 700, fontSize: 15,
+          padding: "14px", borderRadius: 16,
+          boxShadow: "0 4px 16px rgba(139,92,246,0.3)",
+        }}>
+        + Agregar gasto fijo
+      </Button>
 
       {loading ? <CardSkeleton /> : subs.length === 0 ? (
         <EmptyState icon="ClipboardList" title="Sin gastos fijos" description="Agrega tus gastos fijos y pagos recurrentes." />
@@ -333,7 +287,10 @@ export default function GastosFijosPage() {
         <div onClick={() => setSwipedId(null)}>
         <AnimatePresence mode="popLayout">
           {subs.map((s, i) => {
-            const dueIn = daysUntil(s.dueDate); const isLate = dueIn <= 0;
+            const dueDay = parseInt((s.dueDate || "1").split("-")[2]) || 1;
+const deadDay = parseInt((s.deadline || "1").split("-")[2]) || dueDay;
+const payStatus = getPaymentStatus(dueDay, deadDay);
+const isLate = payStatus.status === "overdue";
             const isSwiped = swipedId === s.id;
             return (
               <div key={s.id} style={{ position: "relative", overflow: "hidden", marginBottom: 14, borderRadius: 24 }}>
@@ -370,7 +327,7 @@ export default function GastosFijosPage() {
                       <div className="col">
                         <span className="txt-strong">{s.name}</span>
                         <span className="txt-dim" style={{ color: isLate ? "#FF6B6B" : undefined }}>
-                          {s.isVariable ? "Variable · " : ""}{isLate ? "Vencido " : ""}{fmtDay(s.dueDate)} → {fmtDay(s.deadline)}
+                          {s.isVariable ? "Variable · " : ""}{s.paidThisCycle ? <span style={{ color: "var(--c-save)", fontWeight: 600 }}>Pagado este ciclo</span> : <span style={{ color: payStatus.color, fontWeight: 600 }}>{payStatus.label}</span>} · {fmtDay(s.dueDate)}
                         </span>
                       </div>
                     </div>
@@ -411,20 +368,23 @@ export default function GastosFijosPage() {
                 <div className="txt-dim">{FREQS.find((f) => f.id === selected.frequency)?.label} · {selected.category}</div>
               </div>
 
-              <div className="grid2" style={{ marginBottom:18 }}>
-                <div className="glass" style={{ padding:14, borderRadius:16, textAlign:"center" }}>
-                  <div className="txt-faint" style={{ fontSize:11, marginBottom:4 }}>Día de corte</div>
-                  <div className="txt-strong" style={{ fontSize:15, color: daysUntil(selected.dueDate) <= 1 ? "#FF6B6B" : "var(--c-save)" }}>{fmtDay(selected.dueDate)}</div>
-                  <div className="txt-dim" style={{ fontSize:11 }}>{daysText(daysUntil(selected.dueDate))}</div>
-                </div>
-                <div className="glass" style={{ padding:14, borderRadius:16, textAlign:"center" }}>
-                  <div className="txt-faint" style={{ fontSize:11, marginBottom:4 }}>Día límite</div>
-                  <div className="txt-strong" style={{ fontSize:15, color: daysUntil(selected.deadline) <= 1 ? "#FF6B6B" : "#FF9F43" }}>{fmtDay(selected.deadline)}</div>
-                  <div className="txt-dim" style={{ fontSize:11 }}>{daysText(daysUntil(selected.deadline))}</div>
-                </div>
-              </div>
+              {(() => {
+                const selDueDay = parseInt((selected.dueDate || "1").split("-")[2]) || 1;
+                const selDeadDay = parseInt((selected.deadline || "1").split("-")[2]) || selDueDay;
+                const selStatus = getPaymentStatus(selDueDay, selDeadDay);
+                return (
+                  <div className="glass" style={{ padding:14, borderRadius:16, textAlign:"center", marginBottom:18, border: `1px solid ${selStatus.color}33`, background: `${selStatus.color}08` }}>
+                    <div style={{ fontSize:14, fontWeight:700, color: selStatus.color, marginBottom:4 }}>
+                      {selStatus.label}
+                    </div>
+                    <div className="txt-dim" style={{ fontSize:12 }}>
+                      {fmtDay(selected.dueDate)} → {fmtDay(selected.deadline)}
+                    </div>
+                  </div>
+                );
+              })()}
 
-              {paidThisCycle ? (
+              {selected.paidThisCycle ? (
                 <div style={{
                   display: "flex", alignItems: "center", gap: 8, justifyContent: "center",
                   padding: "10px", marginBottom: 8, borderRadius: 14,
