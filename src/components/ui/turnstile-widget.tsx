@@ -25,7 +25,7 @@ declare global {
   }
 }
 
-const SITEKEY = process.env.NEXT_PUBLIC_TURNSTILE_SITEKEY || "1x00000000000000000000AA";
+const SITEKEY = process.env.NEXT_PUBLIC_TURNSTILE_SITEKEY || "";
 
 export function TurnstileWidget({ onVerify, onError, onExpire }: TurnstileWidgetProps) {
   const containerRef = useRef<HTMLDivElement>(null);

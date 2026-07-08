@@ -98,8 +98,7 @@ export default function DashboardPage() {
     } catch { /* silent */ }
     finally { setLoading(false); }
 
-    // Background: check for push notifications silently
-    fetch("/api/notifications/check").catch(() => {});
+    // Notifications are handled by systemd timer (see systemd/ folder)
   }, []);
 
   useEffect(() => { load(); }, [load]);
