@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/src/components/ui/button";
 import { Icon } from "@/src/components/ui/icon";
 import { toast } from "sonner";
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
@@ -122,5 +122,17 @@ export default function VerifyEmailPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "#050609" }}>
+        <div className="spinner" style={{ width: 28, height: 28 }} />
+      </div>
+    }>
+      <VerifyEmailContent />
+    </Suspense>
   );
 }

@@ -1,0 +1,10 @@
+[Unit]
+Description=Revisar notificaciones push de Nexora — 9 AM y 6 PM
+Requires=nexora-notifications.service
+
+[Timer]
+OnCalendar=09:00,18:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

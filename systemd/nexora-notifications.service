@@ -1,0 +1,9 @@
+[Unit]
+Description=Nexora Finance — Revisar alertas push
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/curl -s http://localhost:3004/api/notifications/check
+WorkingDirectory=/var/www/nexora-finances
+User=root
