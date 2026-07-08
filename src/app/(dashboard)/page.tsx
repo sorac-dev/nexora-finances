@@ -65,17 +65,20 @@ export default function DashboardPage() {
       const cards = cardsRes.ok ? await cardsRes.json() : [];
       if (pinRes.ok) { const d = await pinRes.json(); setHasPin(d.hasPin); }
 
-      // Fetch cumulative wallet balance from FinancialAccount
+      // Start with estimates from paginated data
+      let monthIncome = txs.data.filter((t: { type: string }) => t.type === "income").reduce((s: number, t: { amount: number }) => s + t.amount, 0);
+      let monthExpenses = txs.data.filter((t: { type: string }) => t.type === "expense").reduce((s: number, t: { amount: number }) => s + t.amount, 0);
+
+      // Fetch REAL totals from accounts API (SQL aggregation — not limited by pagination)
       try {
         const accRes = await fetch("/api/accounts");
         if (accRes.ok) {
           const acc = await accRes.json();
           if (acc.balance !== undefined) setWalletBalance(Number(acc.balance));
+          if (acc.monthIncome !== undefined) monthIncome = Number(acc.monthIncome);
+          if (acc.monthExpenses !== undefined) monthExpenses = Number(acc.monthExpenses);
         }
       } catch {}
-
-      const monthIncome = txs.data.filter((t: { type: string }) => t.type === "income").reduce((s: number, t: { amount: number }) => s + t.amount, 0);
-      const monthExpenses = txs.data.filter((t: { type: string }) => t.type === "expense").reduce((s: number, t: { amount: number }) => s + t.amount, 0);
 
       const allTxs: { name: string; type: string; cardId: string | null; date: string }[] = txs.data;
 

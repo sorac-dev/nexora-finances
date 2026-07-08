@@ -6,7 +6,10 @@ export async function GET(request: NextRequest) {
   const userId = await getUserId(request);
   const account = await prisma.financialAccount.findFirst({ where: { userId, deletedAt: null } });
 
-  // Calculate balance via SQL aggregation — fast and accurate
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  // All-time balance
   const incomeRows = await prisma.$queryRawUnsafe(
     `SELECT COALESCE(SUM(amount), 0) as total FROM \`Transaction\` WHERE userId = ? AND type = 'income' AND deletedAt IS NULL`,
     userId
@@ -18,7 +21,20 @@ export async function GET(request: NextRequest) {
 
   const balance = Number(incomeRows[0].total) - Number(expenseRows[0].total);
 
-  // Sync the FinancialAccount for atomic updates on new transactions
+  // Current month income/expenses (not limited by pagination)
+  const monthIncomeRows = await prisma.$queryRawUnsafe(
+    `SELECT COALESCE(SUM(amount), 0) as total FROM \`Transaction\` WHERE userId = ? AND type = 'income' AND deletedAt IS NULL AND date >= ?`,
+    userId, monthStart
+  ) as { total: number }[];
+  const monthExpenseRows = await prisma.$queryRawUnsafe(
+    `SELECT COALESCE(SUM(amount), 0) as total FROM \`Transaction\` WHERE userId = ? AND type = 'expense' AND deletedAt IS NULL AND date >= ?`,
+    userId, monthStart
+  ) as { total: number }[];
+
+  const monthIncome = Number(monthIncomeRows[0].total);
+  const monthExpenses = Number(monthExpenseRows[0].total);
+
+  // Sync the FinancialAccount
   if (account) {
     await prisma.financialAccount.update({
       where: { id: account.id },
@@ -26,5 +42,10 @@ export async function GET(request: NextRequest) {
     }).catch(() => {});
   }
 
-  return NextResponse.json({ balance, name: account?.name || "Cuenta Principal" });
+  return NextResponse.json({
+    balance,
+    monthIncome,
+    monthExpenses,
+    name: account?.name || "Cuenta Principal",
+  });
 }
