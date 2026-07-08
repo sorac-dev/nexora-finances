@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
   ]);
 
   // Don't expose whether PIN exists — just true/false
-  const safe = users.map((u) => ({
+  const safe = (users as { id: string; name: string; email: string; role: string; emailVerified: boolean; createdAt: Date; securityPin: string | null; _count: { sessions: number; transactions: number; goals: number; creditCards: number } }[]).map((u) => ({
     id: u.id,
     name: u.name,
     email: u.email,

@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     smtp: { configured: smtpOk, host: process.env.SMTP_HOST || "no configurado" },
     vapid: { configured: vapidOk, subject: process.env.VAPID_SUBJECT || "" },
     pushSubscriptions: pushSubs,
-    rateLimits: blockedIps.map((r) => ({
+    rateLimits: (blockedIps as { key: string; count: number; expiresAt: Date }[]).map((r) => ({
       key: r.key.replace(/^rl:/, ""),
       count: r.count,
       expiresAt: r.expiresAt,
