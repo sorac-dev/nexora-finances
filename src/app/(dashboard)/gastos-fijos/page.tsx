@@ -203,25 +203,28 @@ export default function GastosFijosPage() {
   }
 
   // ── Pay ─────────────────────────────────────────────────────────
+  // NOTE: We no longer advance the due date on payment.
+  // The due date stays fixed (e.g., day 5 of each month).
+  // "Already paid this cycle" is detected by querying transactions.
+  // This way deleting a payment naturally undoes the payment status.
   async function handleSkip() {
     if (!selected) return;
     setPaying(true);
     try {
-      // Advance due date to next cycle without creating a payment transaction
-      const d = new Date(selected.dueDate + "T00:00:00");
-      const dl = new Date(selected.deadline + "T00:00:00");
-      if (selected.frequency === "weekly") { d.setDate(d.getDate() + 7); dl.setDate(dl.getDate() + 7); }
-      else if (selected.frequency === "annual") { d.setFullYear(d.getFullYear() + 1); dl.setFullYear(dl.getFullYear() + 1); }
-      else { d.setMonth(d.getMonth() + 1); dl.setMonth(dl.getMonth() + 1); }
-      const nd = d.toISOString().split("T")[0], ndl = dl.toISOString().split("T")[0];
-      const r = await fetch(`/api/subscriptions/${selected.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dueDate: nd, deadline: ndl }) });
-      if (r.ok) {
-        const u = await r.json();
-        setPaidThisCycle(true);
-        setSelected({ ...selected, dueDate: u.dueDate, deadline: u.deadline });
-        setSubs((prev) => prev.map((s) => s.id === selected.id ? { ...s, dueDate: u.dueDate, deadline: u.deadline } : s));
-        toast.success(`Pospuesto. Proximo: ${fmtDay(nd)}`);
-      }
+      // Create a $0 transaction to mark this cycle as skipped
+      await fetch("/api/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "expense", amount: 0,
+          description: `Saltado - ${selected.name}`,
+          cat: selected.category,
+          date: new Date().toISOString(),
+          method: "Transferencia",
+        }),
+      });
+      setPaidThisCycle(true);
+      toast.success("Pospuesto. No se registra cargo.");
     } catch { toast.error("Error"); }
     finally { setPaying(false); }
   }
@@ -235,23 +238,19 @@ export default function GastosFijosPage() {
     if (amount <= 0) { toast.error("Monto inválido"); setPaying(false); return; }
 
     try {
-      // Create the payment transaction
-      await fetch("/api/transactions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "expense", amount, description: selected.name, cat: selected.category, date: new Date().toISOString(), method: "Transferencia" }) });
-
-      // Advance to next cycle
-      const d = new Date(selected.dueDate + "T00:00:00"), dl = new Date(selected.deadline + "T00:00:00");
-      if (selected.frequency === "weekly") { d.setDate(d.getDate() + 7); dl.setDate(dl.getDate() + 7); }
-      else if (selected.frequency === "annual") { d.setFullYear(d.getFullYear() + 1); dl.setFullYear(dl.getFullYear() + 1); }
-      else { d.setMonth(d.getMonth() + 1); dl.setMonth(dl.getMonth() + 1); }
-      const nd = d.toISOString().split("T")[0], ndl = dl.toISOString().split("T")[0];
-      const r = await fetch(`/api/subscriptions/${selected.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dueDate: nd, deadline: ndl }) });
-      if (r.ok) {
-        const u = await r.json();
-        setPaidThisCycle(true);
-        setSelected({ ...selected, dueDate: u.dueDate, deadline: u.deadline });
-        setSubs((prev) => prev.map((s) => s.id === selected.id ? { ...s, dueDate: u.dueDate, deadline: u.deadline } : s));
-        toast.success(`Pago registrado. Proximo: ${fmtDay(nd)}`);
-      }
+      await fetch("/api/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "expense", amount,
+          description: selected.name,
+          cat: selected.category,
+          date: new Date().toISOString(),
+          method: "Transferencia",
+        }),
+      });
+      setPaidThisCycle(true);
+      toast.success("Pago registrado.");
     } catch { toast.error("Error"); }
     finally { setPaying(false); }
   }
