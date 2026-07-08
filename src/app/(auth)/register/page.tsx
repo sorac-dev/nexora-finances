@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/src/components/ui/button";
 import { Icon } from "@/src/components/ui/icon";
+import { TurnstileWidget } from "@/src/components/ui/turnstile-widget";
 import { registerSchema } from "@/src/schemas/auth.schema";
 import { toast } from "sonner";
 import { APP_NAME } from "@/src/lib/constants";
@@ -18,10 +19,15 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [serverError, setServerError] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErrors({});
+    setServerError("");
     const parsed = registerSchema.safeParse({ name, email, password, confirmPassword });
     if (!parsed.success) {
       const fieldErrors: Record<string, string> = {};
@@ -31,22 +37,23 @@ export default function RegisterPage() {
       setErrors(fieldErrors);
       return;
     }
-    if (!acceptedTerms) { toast.error("Debes aceptar los términos y condiciones"); return; }
+    if (!acceptedTerms) { setServerError("Debes aceptar los términos y condiciones"); return; }
+    if (!turnstileToken) { setServerError("Completa la verificación de seguridad"); return; }
     setLoading(true);
     try {
       const res = await fetch("/api/auth/sign-up/email", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name, email, password, turnstileToken }),
       });
       if (!res.ok) {
-        const data = await res.json();
-        toast.error(data.message || "Error al registrarse");
+        const data = await res.json().catch(() => ({}));
+        setServerError(data.message || "Error al registrarse. Verifica tus datos.");
         return;
       }
       toast.success("¡Cuenta creada! Revisa tu email para verificarla.");
       router.push("/verify-email");
     } catch {
-      toast.error("Error de conexión");
+      setServerError("Error de conexión. Revisa tu internet.");
     } finally {
       setLoading(false);
     }
@@ -54,17 +61,19 @@ export default function RegisterPage() {
 
   return (
     <div style={{
-      width: "100%", minHeight: "100dvh", position: "relative", overflow: "hidden",
+      width: "100%", maxWidth: "100vw", minHeight: "100dvh", position: "relative",
+      overflowY: "auto", overflowX: "hidden",
       display: "flex", alignItems: "center", justifyContent: "center",
+      paddingTop: 40, paddingBottom: 40,
       background: "radial-gradient(ellipse at 10% 0%, #1a1d30, #050609 50%)",
     }}>
       <div className="blob blob1" />
       <div className="blob blob2" />
 
       <div style={{ position: "relative", zIndex: 2, width: "100%", maxWidth: 420, padding: 24 }}>
-        <div style={{ textAlign: "center", marginBottom: 28 }}>
+        <div style={{ textAlign: "center", marginBottom: 18 }}>
           <div style={{
-            width: 72, height: 72, borderRadius: 22, margin: "0 auto 16px",
+            width: 56, height: 56, borderRadius: 18, margin: "0 auto 10px",
             background: "linear-gradient(135deg, rgba(52,199,89,0.15), rgba(10,132,255,0.12))",
             display: "flex", alignItems: "center", justifyContent: "center",
             border: "1px solid rgba(52,199,89,0.2)",
@@ -108,8 +117,22 @@ export default function RegisterPage() {
               <span style={{ position: "absolute", left: 14, top: 16, zIndex: 1 }}>
                 <Icon name="Lock" size={16} color="var(--text-faint)" />
               </span>
-              <input className="nexora-input" style={{ paddingLeft: 40 }} type="password" placeholder="Mínimo 8 caracteres" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
+              <input
+                className="nexora-input"
+                style={{ paddingLeft: 40, paddingRight: 42 }}
+                type={showPassword ? "text" : "password"}
+                placeholder="Mínimo 8 caracteres"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
+              />
+              <span onClick={() => setShowPassword(!showPassword)} style={{ position: "absolute", right: 14, top: 16, zIndex: 1, cursor: "pointer" }}>
+                <Icon name={showPassword ? "EyeOff" : "Eye"} size={16} color="var(--text-faint)" />
+              </span>
             </div>
+            <p style={{ color: "var(--text-faint)", fontSize: 11, margin: "-4px 0 10px 4px" }}>
+              Mínimo 8 caracteres, 1 mayúscula y 1 número
+            </p>
             {errors.password && <p style={{ color: "#FF6B6B", fontSize: 12, margin: "-8px 0 8px" }}>{errors.password}</p>}
 
             <label className="field-label">Confirmar contraseña</label>
@@ -117,9 +140,33 @@ export default function RegisterPage() {
               <span style={{ position: "absolute", left: 14, top: 16, zIndex: 1 }}>
                 <Icon name="Lock" size={16} color="var(--text-faint)" />
               </span>
-              <input className="nexora-input" style={{ paddingLeft: 40 }} type="password" placeholder="Repite la contraseña" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} autoComplete="new-password" />
+              <input
+                className="nexora-input"
+                style={{ paddingLeft: 40, paddingRight: 42 }}
+                type={showConfirm ? "text" : "password"}
+                placeholder="Repite la contraseña"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                autoComplete="new-password"
+              />
+              <span onClick={() => setShowConfirm(!showConfirm)} style={{ position: "absolute", right: 14, top: 16, zIndex: 1, cursor: "pointer" }}>
+                <Icon name={showConfirm ? "EyeOff" : "Eye"} size={16} color="var(--text-faint)" />
+              </span>
             </div>
             {errors.confirmPassword && <p style={{ color: "#FF6B6B", fontSize: 12, margin: "-8px 0 8px" }}>{errors.confirmPassword}</p>}
+
+            {/* Server error — inline on card */}
+            {serverError && (
+              <div style={{
+                padding: "10px 14px", borderRadius: 12, marginBottom: 14,
+                background: "rgba(255,107,107,0.08)", border: "1px solid rgba(255,107,107,0.2)",
+                color: "#FF6B6B", fontSize: 13, fontWeight: 600,
+                display: "flex", alignItems: "center", gap: 8,
+              }}>
+                <Icon name="AlertCircle" size={16} color="#FF6B6B" />
+                {serverError}
+              </div>
+            )}
 
             <div style={{ display: "flex", alignItems: "flex-start", gap: 10, margin: "14px 0" }}>
               <div onClick={() => setAcceptedTerms(!acceptedTerms)} style={{
@@ -139,6 +186,12 @@ export default function RegisterPage() {
                 <a href="/cookies" style={{ color: "var(--c-blue)", textDecoration: "none", fontWeight: 600 }}>Política de Cookies</a>.
               </span>
             </div>
+
+            {/* Turnstile */}
+            <TurnstileWidget
+              onVerify={(token) => setTurnstileToken(token)}
+              onExpire={() => setTurnstileToken("")}
+            />
 
             <Button type="submit" disabled={loading} style={{ marginTop: 8 }}>
               {loading ? "Creando cuenta..." : "Crear cuenta"}

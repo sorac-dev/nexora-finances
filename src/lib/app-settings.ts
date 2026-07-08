@@ -16,6 +16,7 @@ const DEFAULTS: Record<string, string> = {
   terms_text: "",
   privacy_text: "",
   cookies_text: "",
+  require_email_verification: "",
 };
 
 // Cache settings in memory for 60 seconds to avoid DB hits on every request

@@ -204,6 +204,33 @@ export default function AdminSystemPage() {
             ))}
           </div>
         </div>
+
+        {/* Email verification toggle */}
+        <div className="glass" style={{ padding: 20, borderRadius: 16 }}>
+          <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 4, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: 1 }}>Verificación de email</h3>
+          <p style={{ fontSize: 12, color: "var(--text-dim)", marginBottom: 14 }}>
+            Requiere que los nuevos usuarios verifiquen su correo antes de acceder. Solo funciona si SMTP está configurado.
+          </p>
+          <label style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}>
+            <div
+              onClick={() => setSettings((s) => ({ ...s, require_email_verification: s.require_email_verification === "true" ? "false" : "true" }))}
+              style={{
+                minWidth: 48, width: 48, height: 28, borderRadius: 14,
+                background: settings.require_email_verification === "true" ? "var(--c-save)" : "var(--track)",
+                position: "relative", transition: "background 0.2s",
+              }}>
+              <div style={{
+                width: 22, height: 22, borderRadius: "50%", background: "#fff",
+                position: "absolute", top: 3,
+                left: settings.require_email_verification === "true" ? 23 : 3,
+                transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+              }} />
+            </div>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>
+              {settings.require_email_verification === "true" ? "Verificación requerida" : "Sin verificación (auto-confirmar)"}
+            </span>
+          </label>
+        </div>
       </div>
 
       <button

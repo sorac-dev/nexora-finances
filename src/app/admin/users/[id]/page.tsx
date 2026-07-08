@@ -89,6 +89,8 @@ export default function AdminUserDetailPage() {
       {/* Info cards — no financial data */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12, marginBottom: 24 }}>
         <InfoCard label="Email" value={user.email} />
+        <InfoCard label="Email verificado" value={user.emailVerified ? "Sí ✓" : "No ✗"}
+          color={user.emailVerified ? "var(--c-save)" : "#FF6B6B"} />
         <InfoCard label="Registro" value={new Date(user.createdAt).toLocaleDateString("es-CO")} />
         <InfoCard label="PIN" value={user.hasPin ? "Configurado" : "No configurado"}
           color={user.hasPin ? "var(--c-save)" : "var(--text-dim)"} />
@@ -98,6 +100,16 @@ export default function AdminUserDetailPage() {
       {/* Actions */}
       <h2 style={{ fontSize: 16, fontWeight: 700, color: "#fff", marginBottom: 12 }}>Acciones administrativas</h2>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 24 }}>
+
+        {/* Email verification toggle */}
+        <button onClick={() => handleAction(
+          { emailVerified: !user.emailVerified },
+          user.emailVerified ? "Email marcado como NO verificado" : "Email verificado manualmente"
+        )} disabled={loading}
+          style={btnStyle(user.emailVerified ? "#FF9F43" : "var(--c-save)")}>
+          <Icon name={user.emailVerified ? "MailX" : "MailCheck"} size={14} />
+          {user.emailVerified ? "Marcar email como NO verificado" : "Verificar email manualmente"}
+        </button>
 
         {/* Role toggle */}
         <button onClick={() => handleAction(

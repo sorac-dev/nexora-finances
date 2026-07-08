@@ -29,7 +29,6 @@ export function PinModal({ open, onClose, title, subtitle, onVerify, allowSkip }
       setError(false);
       setShaking(false);
       setVerifying(false);
-      // Focus first input
       setTimeout(() => inputRefs.current[0]?.focus(), 350);
     }
   }, [open]);
@@ -125,7 +124,7 @@ export function PinModal({ open, onClose, title, subtitle, onVerify, allowSkip }
         <div
           style={{
             position: "fixed", inset: 0, zIndex: 9999,
-            background: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)",
+            background: "rgba(5,6,9,0.85)", backdropFilter: "blur(24px) saturate(180%)", WebkitBackdropFilter: "blur(24px) saturate(180%)",
             display: "flex", alignItems: "flex-end", justifyContent: "center",
           }}
           onClick={() => {

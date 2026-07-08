@@ -22,6 +22,7 @@ export async function PUT(request: NextRequest) {
     "primary_color", "accent_color",
     "legal_email", "privacy_email", "support_email",
     "legal_address", "legal_country", "app_domain",
+    "require_email_verification",
   ]);
 
   const updates: Record<string, string> = {};

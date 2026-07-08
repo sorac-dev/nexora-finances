@@ -6,6 +6,16 @@ import nodemailer from "nodemailer";
 import fs from "fs";
 import path from "path";
 
+// Read admin preference for email verification (checks DB every time — cached at settings layer)
+async function shouldRequireEmailVerification(): Promise<boolean> {
+  if (!smtpConfigured) return false;
+  try {
+    return await getSetting("require_email_verification") === "true";
+  } catch {
+    return true; // default: require if SMTP available
+  }
+}
+
 const smtpConfigured = !!(
   process.env.SMTP_HOST && process.env.SMTP_PASS && process.env.SMTP_FROM
 );
@@ -33,8 +43,11 @@ function loadTemplate(name: string, vars: Record<string, string>): string {
     }
     return html;
   } catch {
-    // Fallback minimal template — appName is always passed from sendEmail
-    return `<div style="font-family:Arial,sans-serif;padding:20px"><h2>${vars.appName || "Nexora Finance"}</h2><p>${vars.userName || ""}, haz clic en el enlace:</p><a href="${vars.verificationUrl || vars.resetUrl || "#"}">Continuar</a></div>`;
+    // Fallback minimal template
+    const appName = vars.appName || "Nexora Finance";
+    const logoUrl = vars.logoUrl || "";
+    const link = vars.verificationUrl || vars.resetUrl || "#";
+    return `<div style="font-family:Arial,sans-serif;padding:20px;text-align:center">${logoUrl ? `<img src="${logoUrl}" alt="${appName}" width="48" height="48" style="border-radius:12px;margin-bottom:12px">` : ""}<h2>${appName}</h2><p>${vars.userName || ""}, haz clic en el enlace:</p><a href="${link}" style="display:inline-block;padding:12px 24px;background:#0A84FF;color:#fff;border-radius:12px;text-decoration:none;font-weight:700">Continuar</a></div>`;
   }
 }
 
@@ -42,10 +55,14 @@ async function sendEmail(to: string, subject: string, template: string, vars: Re
   console.log(`[EMAIL] sendEmail called — to: ${to}, subject: "${subject}", template: ${template}, transporterReady: ${!!transporter}`);
   if (!transporter) { console.error("[EMAIL] No transporter configured!"); return; }
 
-  // Always inject the app name from DB settings (falls back to env)
+  // Always inject the app name and logo from DB settings (falls back to env)
   if (!vars.appName) {
     try { vars.appName = await getSetting("app_name"); }
     catch { vars.appName = process.env.NEXT_PUBLIC_APP_NAME || "Nexora Finance"; }
+  }
+  if (!vars.logoUrl) {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    vars.logoUrl = `${appUrl}/icons/icono-n.png`;
   }
   try {
     const html = loadTemplate(template, vars);
@@ -71,8 +88,10 @@ export const auth = betterAuth({
 
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: smtpConfigured,
-    autoSignIn: !smtpConfigured,
+    // Always allow login — unverified users get a gate modal instead of being blocked.
+    // Verification email is still sent (if SMTP + admin enabled).
+    requireEmailVerification: false,
+    autoSignIn: true,
     // sendResetPassword MUST always be defined — Better Auth throws RESET_PASSWORD_DISABLED if absent
     sendResetPassword: async (data: { user: { name?: string; email: string }; url: string; token: string }) => {
       console.log("[RESET-PASSWORD] sendResetPassword triggered for:", data.user.email);
@@ -102,6 +121,15 @@ export const auth = betterAuth({
 
   emailVerification: smtpConfigured ? {
     sendVerificationEmail: async ({ user, url }) => {
+      // Check if admin requires email verification
+      const requireVerification = await shouldRequireEmailVerification();
+      if (!requireVerification) {
+        // Admin disabled verification — auto-verify the user
+        console.log("[EMAIL] Verification disabled by admin — auto-verifying:", user.email);
+        await prisma.user.update({ where: { id: user.id }, data: { emailVerified: true } });
+        return;
+      }
+
       const appName = await getSetting("app_name").catch(() => process.env.NEXT_PUBLIC_APP_NAME || "Nexora Finance");
       console.log("[EMAIL] Sending verification to:", user.email);
       await sendEmail(user.email, `Verifica tu cuenta — ${appName}`, "verification", {

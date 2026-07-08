@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/src/components/ui/button";
 import { Icon } from "@/src/components/ui/icon";
+import { TurnstileWidget } from "@/src/components/ui/turnstile-widget";
 import { loginSchema } from "@/src/schemas/auth.schema";
 import { toast } from "sonner";
 import { APP_NAME } from "@/src/lib/constants";
@@ -14,10 +15,14 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [serverError, setServerError] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErrors({});
+    setServerError("");
     const parsed = loginSchema.safeParse({ email, password });
     if (!parsed.success) {
       const fieldErrors: Record<string, string> = {};
@@ -27,33 +32,30 @@ export default function LoginPage() {
       setErrors(fieldErrors);
       return;
     }
+    if (!turnstileToken) {
+      setServerError("Completa la verificación de seguridad");
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch("/api/auth/sign-in/email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          password,
-          dontRemember: !rememberMe, // false = session with maxAge (1 year extended below), true = session cookie
-        }),
+        body: JSON.stringify({ email, password, turnstileToken, dontRemember: !rememberMe }),
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        console.error("[LOGIN] Failed — status:", res.status, "body:", data);
-        toast.error(data.message || data.error || "Error al iniciar sesión");
+        setServerError("Email o contraseña incorrectos. Intenta de nuevo.");
+        setTurnstileToken("");
         return;
       }
 
-      // If "Mantener sesión abierta" is checked, extend session to 1 year
       if (rememberMe) {
         await fetch("/api/auth/extend-session", { method: "POST" }).catch(() => {});
       }
 
-      // Redirect to home — use assign() for maximum reliability
       window.location.assign("/");
     } catch {
-      toast.error("Error de conexión");
+      setServerError("Error de conexión. Revisa tu internet.");
     } finally {
       setLoading(false);
     }
@@ -61,7 +63,8 @@ export default function LoginPage() {
 
   return (
     <div style={{
-      width: "100%", minHeight: "100dvh", position: "relative", overflow: "hidden",
+      width: "100%", maxWidth: "100vw", minHeight: "100dvh", position: "relative",
+      overflowY: "auto", overflowX: "hidden",
       display: "flex", alignItems: "center", justifyContent: "center",
       background: "radial-gradient(ellipse at 10% 0%, #1a1d30, #050609 50%)",
     }}>
@@ -133,16 +136,34 @@ export default function LoginPage() {
               </span>
               <input
                 className="nexora-input"
-                style={{ paddingLeft: 40 }}
-                type="password"
+                style={{ paddingLeft: 40, paddingRight: 42 }}
+                type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
               />
+              <span
+                onClick={() => setShowPassword(!showPassword)}
+                style={{ position: "absolute", right: 14, top: 16, zIndex: 1, cursor: "pointer" }}>
+                <Icon name={showPassword ? "EyeOff" : "Eye"} size={16} color="var(--text-faint)" />
+              </span>
             </div>
             {errors.password && (
               <p style={{ color: "#FF6B6B", fontSize: 12, margin: "-8px 0 8px" }}>{errors.password}</p>
+            )}
+
+            {/* Server error — inline on card, not toast */}
+            {serverError && (
+              <div style={{
+                padding: "10px 14px", borderRadius: 12, marginBottom: 14,
+                background: "rgba(255,107,107,0.08)", border: "1px solid rgba(255,107,107,0.2)",
+                color: "#FF6B6B", fontSize: 13, fontWeight: 600,
+                display: "flex", alignItems: "center", gap: 8,
+              }}>
+                <Icon name="AlertCircle" size={16} color="#FF6B6B" />
+                {serverError}
+              </div>
             )}
 
             {/* Remember me */}
@@ -175,6 +196,12 @@ export default function LoginPage() {
                 ¿Olvidaste tu contraseña?
               </Link>
             </div>
+
+            {/* Turnstile */}
+            <TurnstileWidget
+              onVerify={(token) => setTurnstileToken(token)}
+              onExpire={() => setTurnstileToken("")}
+            />
 
             <Button type="submit" disabled={loading}>
               {loading ? "Iniciando sesión..." : "Iniciar sesión"}

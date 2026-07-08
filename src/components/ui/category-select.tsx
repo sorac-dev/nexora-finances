@@ -46,7 +46,7 @@ export function CategorySelect({ categories, value, onChange, placeholder = "Eli
             exit={{ opacity: 0, y: -4 }}
             style={{
               position: "fixed", zIndex: 9999, top: "auto", bottom: "auto",
-              maxHeight: "50dvh", overflowY: "auto",
+              maxHeight: "40dvh", overflowY: "auto", WebkitOverflowScrolling: "touch",
               background: "var(--sheet)", border: "1px solid var(--glass-border-strong)",
               borderRadius: 16, padding: 6, boxShadow: "var(--shadow)",
             }}
@@ -54,12 +54,14 @@ export function CategorySelect({ categories, value, onChange, placeholder = "Eli
               if (el) {
                 const rect = el.parentElement?.getBoundingClientRect();
                 if (rect) {
-                  const spaceBelow = window.innerHeight - rect.bottom;
+                  // Use visualViewport when available (handles mobile keyboard correctly)
+                  const vh = window.visualViewport?.height ?? window.innerHeight;
+                  const spaceBelow = vh - rect.bottom;
                   if (spaceBelow > 300) {
                     el.style.top = rect.bottom + 4 + "px";
                     el.style.bottom = "auto";
                   } else {
-                    el.style.bottom = (window.innerHeight - rect.top + 4) + "px";
+                    el.style.bottom = (vh - rect.top + 4) + "px";
                     el.style.top = "auto";
                   }
                   el.style.left = rect.left + "px";

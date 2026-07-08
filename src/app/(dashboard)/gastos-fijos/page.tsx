@@ -245,6 +245,18 @@ export default function GastosFijosPage() {
     <>
       <TopNav title="Gastos fijos" backHref="/more" />
 
+      <Button
+        onClick={startCreate}
+        style={{
+          width: "100%", marginBottom: 16,
+          background: "linear-gradient(135deg, #BF5AF2, #8B5CF6)",
+          color: "#fff", border: "none", fontWeight: 700, fontSize: 15,
+          padding: "14px", borderRadius: 16,
+          boxShadow: "0 4px 16px rgba(139,92,246,0.3)",
+        }}>
+        + Agregar gasto fijo
+      </Button>
+
       {loading ? <CardSkeleton /> : subs.length === 0 ? (
         <EmptyState icon="ClipboardList" title="Sin gastos fijos" description="Agrega tus gastos fijos y pagos recurrentes." />
       ) : (
@@ -308,7 +320,6 @@ export default function GastosFijosPage() {
       {loadingMore && <div className="txt-dim" style={{ textAlign:"center", padding:12, fontSize:12 }}>Cargando más...</div>}
       {!hasMore && subs.length > 0 && <div className="txt-dim" style={{ textAlign:"center", padding:"20px 0 30px", fontSize:12 }}>No hay más datos que mostrar</div>}
       <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay:0.3 }}>
-        <Button variant="secondary" onClick={startCreate}>+ Agregar gasto fijo</Button>
       </motion.div>
 
       {/* ── Detail Modal ──────────────────────────────────────────── */}
@@ -379,7 +390,7 @@ export default function GastosFijosPage() {
         {editing && (
           <div style={{ position:"fixed", inset:0, zIndex:9995, background:"rgba(0,0,0,0.5)", backdropFilter:"blur(4px)", display:"flex", alignItems: editMode ? "flex-end" : "center", justifyContent:"center", padding: editMode ? 0 : 20 }} onClick={() => setEditing(false)}>
             <motion.div initial={editMode ? { y:"100%" } : { scale:0.9, opacity:0 }} animate={editMode ? { y:0 } : { scale:1, opacity:1 }} exit={editMode ? { y:"100%" } : { scale:0.9, opacity:0 }} transition={{ type:"spring", damping:28, stiffness:300 }}
-              style={{ width:"100%", maxWidth:500, maxHeight: editMode ? "90dvh" : "85dvh", borderRadius: editMode ? "28px 28px 0 0" : 24, padding:"24px 22px 34px", overflowY:"auto", background:"var(--sheet)", border:"1px solid var(--glass-border-strong)", boxShadow:"var(--shadow)" }}
+              style={{ width:"100%", maxWidth:500, maxHeight: "92dvh", borderRadius: "28px 28px 0 0", padding:"24px 22px 34px", overflowY:"auto", background:"var(--sheet)", border:"1px solid var(--glass-border-strong)", boxShadow:"var(--shadow)" }}
               onClick={(e) => e.stopPropagation()}>
               {editMode && <div style={{ width:40, height:5, borderRadius:10, background:"var(--track)", margin:"0 auto 20px" }} />}
 

@@ -83,14 +83,20 @@ export default function SecurityPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pin }),
       });
-      if (r.ok) {
-        const { valid } = await r.json();
-        if (valid) {
-          setCurrentPinForChange(pin); // store for the final API call
-          setChangeVerified(true);
-          setShowChangePin(false);
-          return true;
-        }
+      const d = await r.json().catch(() => ({}));
+
+      // Brute-force lockout
+      if (r.status === 423 && d.forceLogout) {
+        setShowChangePin(false);
+        window.location.assign("/login");
+        return false;
+      }
+
+      if (d.valid) {
+        setCurrentPinForChange(pin);
+        setChangeVerified(true);
+        setShowChangePin(false);
+        return true;
       }
       return false;
     } catch {
@@ -158,6 +164,12 @@ export default function SecurityPage() {
         setShowDisablePin(false);
         toast.success("PIN desactivado");
         return true;
+      }
+      // Brute-force lockout check
+      const d = await r.json().catch(() => ({}));
+      if (r.status === 423 && d.forceLogout) {
+        setShowDisablePin(false);
+        window.location.assign("/login");
       }
       return false;
     } catch {
@@ -333,6 +345,7 @@ export default function SecurityPage() {
                   Al cerrar la app, vuelve a pedir el PIN después de:
                 </div>
                 {[
+                  { v: -1, label: "Desactivado" },
                   { v: 0, label: "Enseguida" },
                   { v: 1, label: "1 minuto" },
                   { v: 5, label: "5 minutos" },

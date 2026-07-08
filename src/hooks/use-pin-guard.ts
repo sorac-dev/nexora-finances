@@ -62,13 +62,19 @@ export function usePinGuard() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ pin }),
         });
-        if (r.ok) {
-          const { valid } = await r.json();
-          if (valid && pendingAction) {
-            await pendingAction();
-            cleanup();
-            return true;
-          }
+        const d = await r.json().catch(() => ({}));
+
+        // Brute-force lockout — force logout
+        if (r.status === 423 && d.forceLogout) {
+          cleanup();
+          window.location.assign("/login");
+          return false;
+        }
+
+        if (d.valid && pendingAction) {
+          await pendingAction();
+          cleanup();
+          return true;
         }
         return false;
       } catch {

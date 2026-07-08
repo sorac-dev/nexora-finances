@@ -13,11 +13,12 @@ export function applySecurityHeaders(
     "Content-Security-Policy",
     [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data:",
       "connect-src 'self' https:",
+      "frame-src 'self' https://challenges.cloudflare.com",
       "frame-ancestors 'none'",
     ].join("; ")
   );

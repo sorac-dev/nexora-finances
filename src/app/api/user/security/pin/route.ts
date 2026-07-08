@@ -3,6 +3,24 @@ import { prisma } from "@/src/lib/prisma";
 import { getUserId } from "@/src/lib/db-helpers";
 import { hashPin, verifyPin } from "@/src/lib/pin";
 
+const LOCKOUT_MINUTES = 30;
+const MAX_ATTEMPTS = 5;
+
+async function checkPinLockout(userId: string): Promise<NextResponse | null> {
+  const lockKey = `pin-lockout:${userId}`;
+  const lockout = await prisma.rateLimit.findUnique({ where: { key: lockKey } });
+  if (lockout && lockout.count >= MAX_ATTEMPTS && lockout.expiresAt > new Date()) {
+    // Force logout — too many failed attempts
+    await prisma.session.deleteMany({ where: { userId } });
+    const remaining = Math.ceil((lockout.expiresAt.getTime() - Date.now()) / 1000 / 60);
+    return NextResponse.json(
+      { error: `Cuenta bloqueada por ${remaining} minutos.`, forceLogout: true },
+      { status: 423 }
+    );
+  }
+  return null;
+}
+
 // ─── GET — check if user has a PIN configured ─────────────────────────
 
 export async function GET(request: NextRequest) {
@@ -15,6 +33,11 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   const userId = await getUserId(request);
+
+  // Check brute-force lockout
+  const locked = await checkPinLockout(userId);
+  if (locked) return locked;
+
   const body = await request.json().catch(() => ({}));
   const { pin, currentPin } = body;
 
@@ -51,22 +74,27 @@ export async function PATCH(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
   const { lockTimeout } = body;
 
-  if (lockTimeout !== undefined && ![0, 1, 5, 10].includes(lockTimeout)) {
+  if (lockTimeout !== undefined && ![-1, 0, 1, 5, 10].includes(lockTimeout)) {
     return NextResponse.json({ error: "Valor de bloqueo inválido" }, { status: 422 });
   }
 
   await prisma.user.update({
     where: { id: userId },
-    data: { lockTimeout: lockTimeout ?? 0 },
+    data: { lockTimeout: lockTimeout ?? -1 },
   });
 
-  return NextResponse.json({ success: true, lockTimeout: lockTimeout ?? 0 });
+  return NextResponse.json({ success: true, lockTimeout: lockTimeout ?? -1 });
 }
 
 // ─── DELETE — disable PIN ─────────────────────────────────────────────
 
 export async function DELETE(request: NextRequest) {
   const userId = await getUserId(request);
+
+  // Check brute-force lockout
+  const locked = await checkPinLockout(userId);
+  if (locked) return locked;
+
   const body = await request.json().catch(() => ({}));
   const { pin } = body;
 

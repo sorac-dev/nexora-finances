@@ -45,50 +45,43 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // 2. Credit cards — upcoming cut/payment (billing-cycle aware)
+  // 2. Credit cards — same logic as dashboard "Próximos pagos"
   const cards = await prisma.creditCard.findMany({ where: { userId, deletedAt: null } });
-  const today = now.getDate();
-  const thisMonth = now.getMonth();
-  const thisYear = now.getFullYear();
 
-  // Fetch all card payment transactions in one query to check "already paid"
+  // Check which cards already have a payment this cycle
   const cardPayments = await prisma.transaction.findMany({
     where: {
-      userId,
-      deletedAt: null,
-      type: "expense",
+      userId, deletedAt: null, type: "expense",
       cardId: { not: null },
       description: { contains: "Pago" },
-      date: { gte: new Date(thisYear, thisMonth - 1, 1) }, // last 2 months cover all cycles
+      date: { gte: new Date(now.getFullYear(), now.getMonth() - 1, 1) },
     },
     select: { cardId: true, date: true },
   });
 
+  const nextDayDate = (day: number) => {
+    let d = new Date(now.getFullYear(), now.getMonth(), Math.min(day, new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()));
+    while (d.getTime() < now.getTime() - 86400000) d.setMonth(d.getMonth() + 1);
+    return d;
+  };
+
   for (const c of cards) {
-    if (c.type !== "credito") continue;
+    if (c.type !== "credito" || !c.cutDay || !c.dueDay) continue;
 
-    const cutPassedThisMonth = today >= c.cutDay;
-    const cutMonth = cutPassedThisMonth ? thisMonth : (thisMonth === 0 ? 11 : thisMonth - 1);
-    const cutYear = cutPassedThisMonth ? thisYear : (thisMonth === 0 ? thisYear - 1 : thisYear);
-    const cutDate = new Date(cutYear, cutMonth, c.cutDay);
+    const cutDate = nextDayDate(c.cutDay);
+    const dueDate = nextDayDate(c.dueDay);
 
-    const dueSameMonth = c.dueDay > c.cutDay;
-    const dueMonth = dueSameMonth ? cutMonth : (cutMonth === 11 ? 0 : cutMonth + 1);
-    const dueYear = (!dueSameMonth && cutMonth === 11) ? cutYear + 1 : cutYear;
-    const dueDate = new Date(dueYear, dueMonth, c.dueDay);
-
-    const nextCutDate = cutPassedThisMonth
-      ? new Date(thisYear, thisMonth + 1, c.cutDay)
-      : new Date(thisYear, thisMonth, c.cutDay);
-    const daysUntilCut = Math.ceil((nextCutDate.getTime() - now.getTime()) / 86400000);
-    const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / 86400000);
-
-    // Check if already paid this billing cycle
+    // Check if already paid since last cut
+    const lastCutPassed = new Date(now.getFullYear(), now.getMonth(), c.cutDay);
+    if (lastCutPassed.getTime() > now.getTime()) lastCutPassed.setMonth(lastCutPassed.getMonth() - 1);
     const alreadyPaid = cardPayments.some(
-      (p: { cardId: string | null; date: Date }) => p.cardId === c.id && new Date(p.date) >= cutDate
+      (p: { cardId: string | null; date: Date }) => p.cardId === c.id && new Date(p.date) >= lastCutPassed
     );
 
-    // ── Cut alert ───────────────────────────────────────────────────
+    const daysUntilCut = Math.ceil((cutDate.getTime() - now.getTime()) / 86400000);
+    const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / 86400000);
+
+    // Cut alert
     if (daysUntilCut >= 0 && daysUntilCut <= 7) {
       alerts.push({
         icon: "CreditCard", text: `Corte próximo: ${c.name}`,
@@ -97,7 +90,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // ── Due alert (only if not already paid) ────────────────────────
+    // Due alert (only if not already paid)
     if (!alreadyPaid && daysUntilDue >= 0 && daysUntilDue <= 7) {
       alerts.push({
         icon: "Banknote", text: `Pago próximo: ${c.name}`,
@@ -106,11 +99,11 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // ── Overdue alert (only if not already paid) ────────────────────
-    if (!alreadyPaid && daysUntilDue < 0 && cutPassedThisMonth) {
+    // Overdue alert (only if not already paid)
+    if (!alreadyPaid && daysUntilDue < 0 && daysUntilDue >= -30) {
       alerts.push({
         icon: "AlertCircle", text: `Pago vencido: ${c.name}`,
-        sub: `La fecha límite era el ${c.dueDay} de ${["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"][dueMonth]}`,
+        sub: `La fecha límite venció hace ${Math.abs(daysUntilDue)} días (día ${c.dueDay})`,
         tone: "urgent",
       });
     }
