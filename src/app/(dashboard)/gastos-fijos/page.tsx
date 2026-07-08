@@ -255,6 +255,21 @@ export default function GastosFijosPage() {
     finally { setPaying(false); }
   }
 
+  async function handleSync() {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/subscriptions/sync", { method: "POST" });
+      if (res.ok) {
+        const d = await res.json();
+        toast.success(`${d.fixed} fechas corregidas`);
+        await load(1);
+      } else {
+        toast.error("Error al sincronizar");
+      }
+    } catch { toast.error("Error"); }
+    finally { setLoading(false); }
+  }
+
   async function toggleActive(s: Sub) {
     try {
       const r = await fetch(`/api/subscriptions/${s.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ active: !s.active }) });
@@ -286,17 +301,31 @@ export default function GastosFijosPage() {
     <>
       <TopNav title="Gastos fijos" backHref="/more" />
 
-      <Button
-        onClick={startCreate}
-        style={{
-          width: "100%", marginBottom: 16,
-          background: "linear-gradient(135deg, #BF5AF2, #8B5CF6)",
-          color: "#fff", border: "none", fontWeight: 700, fontSize: 15,
-          padding: "14px", borderRadius: 16,
-          boxShadow: "0 4px 16px rgba(139,92,246,0.3)",
-        }}>
-        + Agregar gasto fijo
-      </Button>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <Button
+          onClick={startCreate}
+          style={{
+            flex: 1,
+            background: "linear-gradient(135deg, #BF5AF2, #8B5CF6)",
+            color: "#fff", border: "none", fontWeight: 700, fontSize: 15,
+            padding: "14px", borderRadius: 16,
+            boxShadow: "0 4px 16px rgba(139,92,246,0.3)",
+          }}>
+          + Agregar gasto fijo
+        </Button>
+        <button
+          onClick={handleSync}
+          title="Sincronizar fechas de vencimiento"
+          style={{
+            width: 48, height: 48, borderRadius: 16,
+            background: "var(--glass)", border: "1px solid var(--glass-border-strong)",
+            color: "var(--text-dim)", cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            flexShrink: 0,
+          }}>
+          <Icon name="RefreshCw" size={18} />
+        </button>
+      </div>
 
       {loading ? <CardSkeleton /> : subs.length === 0 ? (
         <EmptyState icon="ClipboardList" title="Sin gastos fijos" description="Agrega tus gastos fijos y pagos recurrentes." />
