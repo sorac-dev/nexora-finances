@@ -107,7 +107,7 @@ export async function proxy(request: NextRequest) {
   //    - Public/static assets
   //    - All /api/* routes (route handlers do their own auth via getUserId())
   //    - Auth API routes (Better Auth handles them)
-  const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p)) ||
+  const isPublic = PUBLIC_PATHS.some((p: string) => pathname.startsWith(p)) ||
     pathname.startsWith("/_next") || pathname === "/favicon.ico";
   const isApiRoute = pathname.startsWith("/api/");
 
@@ -118,7 +118,7 @@ export async function proxy(request: NextRequest) {
 
   // 4. Validate session (only for page routes — API routes already passed through)
   const userId = await getSessionUserId(request);
-  const isAuthRoute = AUTH_PATHS.some((p) => pathname.startsWith(p));
+  const isAuthRoute = AUTH_PATHS.some((p: string) => pathname.startsWith(p));
 
   // Only log when debug is enabled (avoids console.log overhead on every request)
   if (process.env.NEXT_PUBLIC_DEBUG_PROXY === "true") {

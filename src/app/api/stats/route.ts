@@ -58,14 +58,16 @@ export async function GET(request: NextRequest) {
     }),
   ]);
 
+  type AggTx = { type: string; amount: unknown; date: Date; category: { name: string; icon: string; color: string } | null };
+
   // ── Aggregate helpers ─────────────────────────────────────────────
-  function aggregate(txs: typeof prevTxs) {
+  function aggregate(txs: AggTx[]) {
     let totalIncome = 0;
     let totalExpenses = 0;
     const byCategory: Record<string, { name: string; icon: string; color: string; amount: number; count: number }> = {};
     const byMonth: Record<string, { month: string; income: number; expenses: number }> = {};
 
-    txs.forEach((tx) => {
+    (txs as AggTx[]).forEach((tx: AggTx) => {
       const amt = toNumber(tx.amount);
       const cat = tx.category || { name: "Otros", icon: "Package", color: "#8E8E93" };
       const monthKey = `${tx.date.getFullYear()}-${String(tx.date.getMonth() + 1).padStart(2, "0")}`;
@@ -92,7 +94,7 @@ export async function GET(request: NextRequest) {
 
   // ── Subscriptions ──────────────────────────────────────────────────
   const subs = await prisma.recurringPayment.findMany({ where: { userId, deletedAt: null, active: true } });
-  const subsTotal = subs.reduce((sum, s) => sum + toNumber(s.amount), 0);
+  const subsTotal = (subs as { amount: unknown }[]).reduce((sum: number, s: { amount: unknown }) => sum + toNumber(s.amount), 0);
 
   // ── Goals ──────────────────────────────────────────────────────────
   const goals = await prisma.goal.findMany({ where: { userId, deletedAt: null } });

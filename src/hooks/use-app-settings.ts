@@ -22,8 +22,8 @@ export function useAppSettings() {
 
   useEffect(() => {
     fetch("/api/public/settings")
-      .then((r) => r.ok ? r.json() : null)
-      .then((d) => { if (d) setSettings((prev) => ({ ...prev, ...d })); })
+      .then((r: Response) => r.ok ? r.json() : null)
+      .then((d: Record<string, string> | null) => { if (d) setSettings((prev: Record<string, string>) => ({ ...prev, ...d })); })
       .catch(() => {});
   }, []);
 

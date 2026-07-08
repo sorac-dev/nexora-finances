@@ -114,7 +114,7 @@ export async function ensureCategories(userId: string) {
   const count = await prisma.category.count({ where: { userId, isDefault: true } });
   if (count === 0) {
     await prisma.category.createMany({
-      data: DEFAULT_CATEGORIES.map((c) => ({ ...c, userId, isDefault: true })),
+      data: (DEFAULT_CATEGORIES as { name: string; icon: string; color: string; type: string }[]).map((c: { name: string; icon: string; color: string; type: string }) => ({ ...c, userId, isDefault: true })),
     });
   }
 }

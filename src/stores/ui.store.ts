@@ -47,7 +47,7 @@ export const useUIStore = create<UIState>()(
           toasts: [...s.toasts, { id: crypto.randomUUID(), message, type }],
         })),
       removeToast: (id) =>
-        set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
+        set((s) => ({ toasts: s.toasts.filter((t: { id: string }) => t.id !== id) })),
     }),
     { name: "nexora-ui", partialize: (s) => ({ theme: s.theme }) }
   )
