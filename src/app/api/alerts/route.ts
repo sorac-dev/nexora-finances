@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
 
     // Check if already paid this billing cycle
     const alreadyPaid = cardPayments.some(
-      (p) => p.cardId === c.id && new Date(p.date) >= cutDate
+      (p: { cardId: string | null; date: Date }) => p.cardId === c.id && new Date(p.date) >= cutDate
     );
 
     // ── Cut alert ───────────────────────────────────────────────────

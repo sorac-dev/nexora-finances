@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
 
   // ── Goals ──────────────────────────────────────────────────────────
   const goals = await prisma.goal.findMany({ where: { userId, deletedAt: null } });
-  const goalsData = goals.map((g) => ({
+  const goalsData = (goals as { name: string; icon: string; color: string; target: unknown; saved: unknown }[]).map((g) => ({
     name: g.name, icon: g.icon, color: g.color,
     target: toNumber(g.target), saved: toNumber(g.saved),
     percentage: toNumber(g.target) > 0 ? Math.round((toNumber(g.saved) / toNumber(g.target)) * 100) : 0,

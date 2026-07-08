@@ -5,7 +5,7 @@ import { getUserId, toNumber } from "@/src/lib/db-helpers";
 export async function GET(req: NextRequest) {
   const userId = await getUserId(req);
   const cards = await prisma.creditCard.findMany({ where: { userId, deletedAt: null }, orderBy: { createdAt: "desc" } });
-  return NextResponse.json(cards.map((c) => ({ ...c, limit: toNumber(c.limit) })));
+  return NextResponse.json((cards as { limit: unknown }[]).map((c: { limit: unknown }) => ({ ...c, limit: toNumber(c.limit) })));
 }
 
 export async function POST(request: NextRequest) {

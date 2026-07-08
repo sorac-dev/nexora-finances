@@ -8,7 +8,7 @@ function fmtTargetDate(d: Date): string { return `${MONTHS[d.getMonth()]} ${d.ge
 export async function GET(req: NextRequest) {
   const userId = await getUserId(req);
   const goals = await prisma.goal.findMany({ where: { userId, deletedAt: null }, orderBy: { createdAt: "desc" } });
-  return NextResponse.json(goals.map((g) => ({
+  return NextResponse.json((goals as { id: string; name: string; icon: string; target: unknown; saved: unknown; targetDate: Date; monthlyContribution: unknown; color: string }[]).map((g) => ({
     id: g.id, name: g.name, icon: g.icon, target: toNumber(g.target), saved: toNumber(g.saved),
     date: fmtTargetDate(g.targetDate), monthly: toNumber(g.monthlyContribution), color: g.color,
   })));

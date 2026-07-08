@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     }),
     prisma.recurringPayment.count({ where: { userId, deletedAt: null } }),
   ]);
-  const data = subs.map((s) => ({
+  const data = (subs as { id: string; name: string; amount: unknown; frequency: string; icon: string; category: string; categoryId: string | null; isVariable: boolean; dueDate: Date; deadline: Date; active: boolean; categoryRel: { name: string; icon: string } | null }[]).map((s) => ({
     id: s.id, name: s.name, amount: toNumber(s.amount), frequency: s.frequency,
     icon: s.categoryRel?.icon || s.icon || "FileText",
     category: s.categoryRel?.name || s.category,

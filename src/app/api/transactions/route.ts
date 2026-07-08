@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
   const hasMore = txs.length > limit;
   if (hasMore) txs.pop(); // remove the extra item
 
-  const data = txs.map((t) => ({
+  const data = (txs as { id: string; type: string; description: string; amount: unknown; date: Date; cardId: string | null; installments: number | null; deletedAt: Date | null; category: { name: string; icon: string } | null }[]).map((t) => ({
     id: t.id, type: t.type, name: t.description, cat: t.category?.name || "Otro",
     amount: toNumber(t.amount), date: fmtDateFull(t.date), dateRaw: t.date.toISOString(),
     icon: t.category?.icon || "Package", cardId: t.cardId, installments: t.installments || 1,

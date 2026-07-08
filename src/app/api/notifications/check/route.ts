@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
 
       // Check if already paid this billing cycle
       const alreadyPaid = cardPayments.some(
-        (p) => p.cardId === c.id && new Date(p.date) >= cutDate
+        (p: { cardId: string | null; date: Date }) => p.cardId === c.id && new Date(p.date) >= cutDate
       );
 
       if (cutIn >= 0 && cutIn <= 3) {
@@ -138,7 +138,7 @@ export async function GET(request: NextRequest) {
   const pushSubs = await prisma.pushSubscription.findMany({ where: { userId } });
 
   if (alerts.length > 0 && pushSubs.length > 0) {
-    const urgentAlerts = alerts.filter((a) => a.urgent);
+    const urgentAlerts = alerts.filter((a: { urgent: boolean }) => a.urgent);
     const toSend = urgentAlerts.length > 0 ? urgentAlerts.slice(0, 5) : alerts.slice(0, 3);
 
     for (const sub of pushSubs) {
@@ -166,7 +166,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     alerts: alerts.length,
-    urgent: alerts.filter((a) => a.urgent).length,
+    urgent: alerts.filter((a: { urgent: boolean }) => a.urgent).length,
     sent,
   });
 }
