@@ -3,13 +3,13 @@ import { requireAdmin } from "@/src/lib/admin-auth";
 import fs from "fs";
 import path from "path";
 
-const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(/* turbopackIgnore: true */ process.cwd(), "public", "uploads");
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp", "image/svg+xml", "image/x-icon", "image/vnd.microsoft.icon"];
 
-// Ensure upload dir exists
-if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+function uploadDir(): string {
+  const dir = process.env.UPLOAD_DIR || path.join(process.cwd(), "public", "uploads");
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  return dir;
 }
 
 export async function POST(request: NextRequest) {
@@ -30,7 +30,8 @@ export async function POST(request: NextRequest) {
     const ext = file.type === "image/x-icon" || file.type === "image/vnd.microsoft.icon"
       ? "ico" : file.type.split("/")[1] || "png";
     const filename = type === "logo" ? `logo.${ext}` : `favicon.${ext}`;
-    const filepath = path.join(UPLOAD_DIR, filename);
+    const dir = uploadDir();
+    const filepath = path.join(dir, filename);
 
     // Save file
     const buffer = Buffer.from(await file.arrayBuffer());

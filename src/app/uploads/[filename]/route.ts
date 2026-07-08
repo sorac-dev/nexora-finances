@@ -2,14 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 
-// Static path: use env var in prod, fallback to project-relative in dev
-const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(/* turbopackIgnore: true */ process.cwd(), "public", "uploads");
+function uploadDir(): string {
+  // process.cwd() inside a function avoids Turbopack tracing the whole project
+  return process.env.UPLOAD_DIR || path.join(process.cwd(), "public", "uploads");
+}
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ filename: string }> }
 ) {
   const { filename } = await params;
+  const UPLOAD_DIR = uploadDir();
 
   // Security: only allow safe filenames
   if (!/^[a-zA-Z0-9_.-]+$/.test(filename)) {

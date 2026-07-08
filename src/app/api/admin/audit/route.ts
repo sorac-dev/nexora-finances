@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
         ? `"${s.replace(/"/g, '""')}"`
         : s;
     };
-    const rows = logs.map((l) =>
+    const rows = logs.map((l: { id: string; userId: string | null; action: string; entity: string; entityId: string | null; details: string | null; ipAddress: string | null; createdAt: Date }) =>
       [l.id, l.userId || "", l.action, l.entity, l.entityId || "", csvEscape(l.details), l.ipAddress || "", l.createdAt.toISOString()]
         .map(csvEscape)
         .join(",")
