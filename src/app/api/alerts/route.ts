@@ -149,7 +149,7 @@ export async function GET(request: NextRequest) {
 
   // Sort: urgent first, then warn, then info
   const order = { urgent: 0, warn: 1, info: 2 };
-  alerts.sort((a, b) => order[a.tone] - order[b.tone]);
+  alerts.sort((a: { tone: "urgent" | "warn" | "info" }, b: { tone: "urgent" | "warn" | "info" }) => order[a.tone] - order[b.tone]);
 
   return NextResponse.json(alerts.slice(0, 20));
 }

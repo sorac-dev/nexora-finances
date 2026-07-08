@@ -103,8 +103,8 @@ export async function GET(request: NextRequest) {
   }));
 
   // ── Response ───────────────────────────────────────────────────────
-  const sortedCategories = Object.values(current.byCategory).sort((a, b) => b.amount - a.amount);
-  const sortedMonths = Object.values(current.byMonth).sort((a, b) => a.month.localeCompare(b.month));
+  const sortedCategories = (Object.values(current.byCategory) as { amount: number }[]).sort((a: { amount: number }, b: { amount: number }) => b.amount - a.amount);
+  const sortedMonths = (Object.values(current.byMonth) as { month: string }[]).sort((a: { month: string }, b: { month: string }) => a.month.localeCompare(b.month));
 
   return NextResponse.json({
     period: { start: start.toISOString(), end: end.toISOString() },
