@@ -203,6 +203,29 @@ export default function GastosFijosPage() {
   }
 
   // ── Pay ─────────────────────────────────────────────────────────
+  async function handleSkip() {
+    if (!selected) return;
+    setPaying(true);
+    try {
+      // Advance due date to next cycle without creating a payment transaction
+      const d = new Date(selected.dueDate + "T00:00:00");
+      const dl = new Date(selected.deadline + "T00:00:00");
+      if (selected.frequency === "weekly") { d.setDate(d.getDate() + 7); dl.setDate(dl.getDate() + 7); }
+      else if (selected.frequency === "annual") { d.setFullYear(d.getFullYear() + 1); dl.setFullYear(dl.getFullYear() + 1); }
+      else { d.setMonth(d.getMonth() + 1); dl.setMonth(dl.getMonth() + 1); }
+      const nd = d.toISOString().split("T")[0], ndl = dl.toISOString().split("T")[0];
+      const r = await fetch(`/api/subscriptions/${selected.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dueDate: nd, deadline: ndl }) });
+      if (r.ok) {
+        const u = await r.json();
+        setPaidThisCycle(true);
+        setSelected({ ...selected, dueDate: u.dueDate, deadline: u.deadline });
+        setSubs((prev) => prev.map((s) => s.id === selected.id ? { ...s, dueDate: u.dueDate, deadline: u.deadline } : s));
+        toast.success(`Pospuesto. Proximo: ${fmtDay(nd)}`);
+      }
+    } catch { toast.error("Error"); }
+    finally { setPaying(false); }
+  }
+
   async function handlePay() {
     if (!selected) return;
     setPaying(true);
@@ -384,9 +407,14 @@ export default function GastosFijosPage() {
                   Ya pagado este ciclo
                 </div>
               ) : (
-                <Button onClick={handlePay} disabled={paying} style={{ marginBottom: 8 }}>
-                  <Icon name="CheckCircle" size={16} /> {paying ? "Registrando..." : selected.isVariable ? "Registrar pago (variable)" : "Registrar pago"}
-                </Button>
+                <>
+                  <Button onClick={handlePay} disabled={paying} style={{ marginBottom: 8 }}>
+                    <Icon name="CheckCircle" size={16} /> {paying ? "Registrando..." : selected.isVariable ? "Registrar pago (variable)" : "Registrar pago"}
+                  </Button>
+                  <Button variant="secondary" onClick={handleSkip} disabled={paying} style={{ marginBottom: 8 }}>
+                    <Icon name="SkipForward" size={16} /> Posponer pago (sin registrar)
+                  </Button>
+                </>
               )}
 
               <Button type="button" variant="ghost" onClick={closeDetail}>Cerrar</Button>

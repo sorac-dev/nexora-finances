@@ -34,7 +34,8 @@ export default function DashboardPage() {
   const { theme, toggleTheme } = useTheme();
   const [data, setData] = useState<Overview | null>(null);
   const [loading, setLoading] = useState(true);
-  const [hasPin, setHasPin] = useState(true); // default true to avoid flash
+  const [hasPin, setHasPin] = useState(true);
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const showOpeningModal = useUIStore((s) => s.showOpeningModal);
   const setShowOpeningModal = useUIStore((s) => s.setShowOpeningModal);
 
@@ -63,6 +64,15 @@ export default function DashboardPage() {
       const profile = profileRes.ok ? await profileRes.json() : { name: "Usuario" };
       const cards = cardsRes.ok ? await cardsRes.json() : [];
       if (pinRes.ok) { const d = await pinRes.json(); setHasPin(d.hasPin); }
+
+      // Fetch cumulative wallet balance from FinancialAccount
+      try {
+        const accRes = await fetch("/api/accounts");
+        if (accRes.ok) {
+          const acc = await accRes.json();
+          if (acc.balance !== undefined) setWalletBalance(Number(acc.balance));
+        }
+      } catch {}
 
       const monthIncome = txs.data.filter((t: { type: string }) => t.type === "income").reduce((s: number, t: { amount: number }) => s + t.amount, 0);
       const monthExpenses = txs.data.filter((t: { type: string }) => t.type === "expense").reduce((s: number, t: { amount: number }) => s + t.amount, 0);
@@ -157,20 +167,16 @@ export default function DashboardPage() {
       <div className="glass-strong glass-card" style={{
         marginTop: 14, background: "linear-gradient(135deg, rgba(10,132,255,0.15), rgba(139,92,246,0.12))",
       }}>
-        <div className="txt-dim" style={{ fontSize: 12 }}>Balance del mes</div>
-        <div style={{ fontSize: 36, fontWeight: 800, letterSpacing: -1, margin: "4px 0 14px", color: balanceColor }}>
-          {data.balance >= 0 ? "" : "-"}{fmt(Math.abs(data.balance))}
+        <div className="txt-dim" style={{ fontSize: 12 }}>Saldo total</div>
+        <div style={{ fontSize: 36, fontWeight: 800, letterSpacing: -1, margin: "4px 0 14px", color: (walletBalance ?? data.balance) >= 0 ? "var(--c-save)" : "#FF6B6B" }}>
+          {(walletBalance ?? data.balance) >= 0 ? "" : "-"}{fmt(Math.abs(walletBalance ?? data.balance))}
+        </div>
+        <div className="row" style={{ marginBottom: 10 }}>
+          <div style={{ fontSize: 11, color: "var(--text-faint)" }}>Ingresos del mes: <span className="amount-pos">{fmt(data.income)}</span></div>
+          <div style={{ fontSize: 11, color: "var(--text-faint)" }}>Gastos del mes: <span style={{ color: "#FF6B6B" }}>{fmt(data.expenses)}</span></div>
         </div>
         <div className="row">
           <div className="col">
-            <div className="txt-dim" style={{ fontSize: 11 }}>Ingresos</div>
-            <div className="amount-pos" style={{ fontSize: 16 }}>{fmt(data.income)}</div>
-          </div>
-          <div className="col" style={{ alignItems: "center" }}>
-            <div className="txt-dim" style={{ fontSize: 11 }}>Gastos</div>
-            <div className="txt-strong" style={{ fontSize: 16, color: "#FF6B6B" }}>{fmt(data.expenses)}</div>
-          </div>
-          <div className="col" style={{ alignItems: "flex-end" }}>
             <div className="txt-dim" style={{ fontSize: 11 }}>Gastos fijos</div>
             <div className="txt-strong" style={{ fontSize: 16, color: "#FF9F43" }}>{fmt(data.subscriptionsTotal)}</div>
           </div>
