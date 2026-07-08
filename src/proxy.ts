@@ -56,7 +56,9 @@ async function getSessionUserId(request: NextRequest): Promise<string | null> {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const method = request.method;
-  const ip = request.headers.get("x-forwarded-for") || "unknown";
+  // Cloudflare: x-forwarded-for = "real-ip, cf-ip". Take the first one.
+  const forwarded = request.headers.get("x-forwarded-for") || "";
+  const ip = forwarded.split(",")[0].trim() || request.headers.get("x-real-ip") || request.headers.get("cf-connecting-ip") || "unknown";
 
   // 1. Rate limiting for auth endpoints
   for (const [path, action] of Object.entries(RATE_LIMITED_PATHS)) {

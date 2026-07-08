@@ -3,6 +3,16 @@ import { prisma } from "@/src/lib/prisma";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+function getClientIp(request?: NextRequest): string {
+  if (!request) return "unknown";
+  // Cloudflare: x-forwarded-for = "real-ip, cf-ip". First one is real.
+  const forwarded = request.headers.get("x-forwarded-for") || "";
+  return forwarded.split(",")[0].trim() ||
+    request.headers.get("x-real-ip") ||
+    request.headers.get("cf-connecting-ip") ||
+    "unknown";
+}
+
 /**
  * Require ADMIN role for a request.
  * Verifies the session server-side against the DB on EVERY call.
@@ -40,7 +50,7 @@ export async function requireAdmin(
           entity: "admin",
           entityId: session.user.id,
           details: JSON.stringify({ reason: "not_admin", attemptedRole: user?.role || "unknown" }),
-          ipAddress: request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown",
+          ipAddress: getClientIp(request),
           userAgent: request.headers.get("user-agent") || "",
         },
       }).catch(() => {});
@@ -85,7 +95,7 @@ export async function adminAudit(
         entity,
         entityId,
         details: safe ? JSON.stringify(safe) : null,
-        ipAddress: request?.headers.get("x-forwarded-for") || request?.headers.get("x-real-ip") || "unknown",
+        ipAddress: getClientIp(request),
         userAgent: request?.headers.get("user-agent") || "",
       },
     });
