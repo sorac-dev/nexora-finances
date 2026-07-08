@@ -73,12 +73,18 @@ export async function POST(request: NextRequest) {
     data: { userId, type: body.type || "expense", amount, description: body.name || body.description || "Movimiento", date: new Date(body.date || new Date()), installments: Number(body.installments) || 1, categoryId: category?.id || "", accountId: account.id, cardId: body.cardId || null },
   });
 
-  // Atomic update — prevents race conditions when creating multiple transactions quickly
-  const delta = body.type === "income" ? amount : -amount;
-  await prisma.financialAccount.update({
-    where: { id: account.id },
-    data: { balance: { increment: delta } },
-  });
+  // Atomic update — prevents race conditions. Uses raw SQL for reliability.
+  if (body.type === "income") {
+    await prisma.$executeRawUnsafe(
+      `UPDATE FinancialAccount SET balance = balance + ? WHERE id = ?`,
+      amount, account.id
+    );
+  } else {
+    await prisma.$executeRawUnsafe(
+      `UPDATE FinancialAccount SET balance = balance - ? WHERE id = ?`,
+      amount, account.id
+    );
+  }
 
   return NextResponse.json({ id: tx.id, type: tx.type, name: tx.description, cat: category?.name || "Otro", amount: toNumber(tx.amount), date: "Hoy", icon: category?.icon || "Package" }, { status: 201 });
 }
