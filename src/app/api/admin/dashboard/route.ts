@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     prisma.user.count(),
     prisma.user.count({ where: { createdAt: { gte: today } } }),
     prisma.user.count({ where: { createdAt: { gte: weekAgo } } }),
-    prisma.session.groupBy({ by: ["userId"], where: { expiresAt: { gte: now } } }).then((r) => r.length),
+    prisma.session.groupBy({ by: ["userId"], where: { expiresAt: { gte: now } } }).then((r: { userId: string }[]) => r.length),
     prisma.transaction.count({ where: { deletedAt: null } }),
     prisma.goal.count({ where: { deletedAt: null } }),
     prisma.creditCard.count({ where: { deletedAt: null } }),
