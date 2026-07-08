@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Nexora Finance
 
 Control financiero personal — simple, elegante, inteligente.
@@ -371,4 +370,3 @@ npm run lint
 Privado — Todos los derechos reservados.
 =======
 # nexora-finances
->>>>>>> df4176e671ceb68f41be8537fc950bc6aae8045a
