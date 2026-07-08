@@ -1,0 +1,124 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { Icon } from "@/src/components/ui/icon";
+import { useAppSettings } from "@/src/hooks/use-app-settings";
+
+export default function PrivacyPage() {
+  const router = useRouter();
+  const s = useAppSettings();
+  return (
+    <div style={{ width:"100%", minHeight:"100dvh", background:"var(--bg)", display:"flex", flexDirection:"column" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:12, padding:"16px 20px", borderBottom:"1px solid var(--glass-border)", flexShrink:0 }}>
+        <div className="top-nav-btn" onClick={() => router.back()}><Icon name="ArrowLeft" size={18} /></div>
+        <h1 style={{ fontSize:17, fontWeight:700, margin:0, color:"var(--text)" }}>Política de Privacidad</h1>
+      </div>
+      <div style={{ flex:1, overflowY:"auto", padding:"24px 20px 60px", color:"var(--text)", lineHeight:1.8, fontSize:14 }}>
+
+        <p style={{ color:"var(--text-dim)", fontSize:12, marginBottom:24 }}>Última actualización: Julio de 2026</p>
+
+        <h2 style={{ fontSize:18, fontWeight:700, marginTop:28, marginBottom:8 }}>1. Introducción y Marco Legal</h2>
+        <p style={{ color:"var(--text-dim)", marginBottom:12 }}>1.1. {s.app_name} (en adelante, "{s.app_name}" o "la Plataforma") se compromete a proteger la privacidad y los datos personales de sus Usuarios, en estricto cumplimiento de la Constitución Política de Colombia (artículo 15), la Ley 1581 de 2012 (Ley de Protección de Datos Personales), el Decreto Reglamentario 1377 de 2013, el Decreto 1074 de 2015 (Decreto Único Reglamentario del Sector Comercio, Industria y Turismo), y demás normas complementarias que regulan la protección de datos personales en la República de Colombia.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:12 }}>1.2. Esta Política de Privacidad describe: (a) qué datos personales recolectamos; (b) cómo los recolectamos; (c) para qué finalidades los utilizamos; (d) cómo los almacenamos y protegemos; (e) con quién los compartimos; (f) cuáles son los derechos del titular de los datos y cómo ejercerlos; (g) los procedimientos para consultas y reclamos.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:12 }}>1.3. Al registrarse y utilizar la Plataforma, el Usuario declara haber sido informado de manera clara, expresa, suficiente y previa sobre el tratamiento de sus datos personales, y otorga su consentimiento libre, previo, expreso, voluntario e informado para que {s.app_name} trate sus datos personales de conformidad con lo establecido en esta Política.</p>
+
+        <h2 style={{ fontSize:18, fontWeight:700, marginTop:28, marginBottom:8 }}>2. Identidad del Responsable del Tratamiento</h2>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}><strong>Razón social:</strong> {s.app_name}</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}><strong>Domicilio:</strong> {s.legal_address}</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}><strong>Correo electrónico para consultas de privacidad:</strong> {s.privacy_email}</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}><strong>Sitio web:</strong> {s.app_url || "http://localhost:3000"}</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:12 }}>Para efectos de la Ley 1581 de 2012, {s.app_name} actúa como Responsable del Tratamiento de los datos personales recolectados a través de la Plataforma.</p>
+
+        <h2 style={{ fontSize:18, fontWeight:700, marginTop:28, marginBottom:8 }}>3. Datos Personales que Recolectamos</h2>
+
+        <h3 style={{ fontSize:15, fontWeight:700, marginTop:16, marginBottom:6 }}>3.1. Datos proporcionados directamente por el Usuario</h3>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>(a) <strong>Datos de registro:</strong> nombre completo y dirección de correo electrónico.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>(b) <strong>Datos de perfil:</strong> país de residencia, moneda preferida, zona horaria, idioma, tema de la interfaz (claro/oscuro), día de salario.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>(c) <strong>Datos financieros:</strong> ingresos (monto, frecuencia, día de pago), gastos (monto, descripción, categoría, fecha, método de pago), tarjetas de crédito (nombre personalizado, franquicia, día de corte, día de pago), metas de ahorro (nombre, monto objetivo, ahorro acumulado, fecha objetivo, aporte mensual), gastos fijos (nombre, monto, frecuencia, día de corte, día límite de pago).</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>(d) <strong>Preferencias:</strong> configuraciones de notificaciones (push, anticipación de alertas, tipos de alertas).</p>
+
+        <h3 style={{ fontSize:15, fontWeight:700, marginTop:16, marginBottom:6 }}>3.2. Datos recolectados automáticamente</h3>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>(a) <strong>Datos de uso:</strong> fecha y hora de acceso, funcionalidades utilizadas, interacciones con la interfaz.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>(b) <strong>Datos del dispositivo:</strong> tipo de navegador, sistema operativo, versión, idioma del navegador, zona horaria, resolución de pantalla, dirección IP.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>(c) <strong>Datos de suscripción push:</strong> endpoint de notificación, claves criptográficas públicas (p256dh, auth) requeridas por el protocolo Web Push.</p>
+
+        <h3 style={{ fontSize:15, fontWeight:700, marginTop:16, marginBottom:6 }}>3.3. Datos que NO recolectamos</h3>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>Para total claridad del Usuario, {s.app_name} NO recolecta, almacena ni procesa en ningún momento: (a) números completos de tarjetas de crédito o débito; (b) códigos de seguridad (CVV/CVC); (c) fechas de vencimiento de tarjetas; (d) números de cuentas bancarias; (e) contraseñas de banca en línea; (f) documentos de identidad (cédula, pasaporte, NIT); (g) datos de localización geográfica precisa (GPS); (h) contactos del dispositivo; (i) fotografías o archivos multimedia del dispositivo; (j) datos biométricos de ningún tipo.</p>
+
+        <h2 style={{ fontSize:18, fontWeight:700, marginTop:28, marginBottom:8 }}>4. Finalidades del Tratamiento de Datos</h2>
+        <p style={{ color:"var(--text-dim)", marginBottom:12 }}>{s.app_name} trata los datos personales de los Usuarios para las siguientes finalidades específicas y legítimas:</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>4.1. <strong>Prestación del servicio principal:</strong> (a) crear y administrar la cuenta del Usuario; (b) autenticar al Usuario y mantener su sesión activa; (c) almacenar, organizar, procesar y mostrar la información financiera ingresada por el Usuario; (d) generar estadísticas, reportes y resúmenes financieros personalizados; (e) gestionar notificaciones y alertas relacionadas con la actividad financiera del Usuario (vencimientos, cortes, metas).</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>4.2. <strong>Seguridad:</strong> (a) prevenir, detectar y combatir actividades fraudulentas, no autorizadas o ilegales; (b) verificar la identidad del Usuario; (c) proteger los derechos, la propiedad y la seguridad de {s.app_name}, sus Usuarios y el público en general.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>4.3. <strong>Comunicaciones:</strong> (a) enviar correos electrónicos transaccionales relacionados con la cuenta (verificación de correo, restablecimiento de contraseña, cambios en los términos); (b) enviar notificaciones push sobre eventos financieros configurados por el Usuario.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>4.4. <strong>Mejora del servicio:</strong> (a) analizar el uso agregado y anonimizado de la Plataforma para identificar áreas de mejora; (b) corregir errores y optimizar el rendimiento; (c) desarrollar nuevas funcionalidades basadas en patrones de uso agregados.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>4.5. <strong>Cumplimiento legal:</strong> (a) cumplir con obligaciones legales y regulatorias aplicables; (b) responder a solicitudes válidas de autoridades judiciales o administrativas competentes, en los términos de la ley colombiana.</p>
+
+        <h2 style={{ fontSize:18, fontWeight:700, marginTop:28, marginBottom:8 }}>5. Base Legal para el Tratamiento</h2>
+        <p style={{ color:"var(--text-dim)", marginBottom:12 }}>5.1. El tratamiento de datos personales realizado por {s.app_name} se fundamenta en las siguientes bases legales, de conformidad con la Ley 1581 de 2012: (a) <strong>Consentimiento del titular:</strong> para todas las finalidades relacionadas con la prestación del servicio principal, comunicaciones y mejora del servicio, {s.app_name} obtiene el consentimiento previo, expreso e informado del Usuario al momento del registro en la Plataforma. (b) <strong>Ejecución de un contrato:</strong> el tratamiento de datos necesario para crear la cuenta, autenticar al Usuario y proporcionar las funcionalidades de la Plataforma se fundamenta en la ejecución del contrato de servicios aceptado por el Usuario (los Términos y Condiciones). (c) <strong>Cumplimiento de obligaciones legales:</strong> cuando una autoridad competente requiera información de acuerdo con la ley colombiana.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:12 }}>5.2. El Usuario puede retirar su consentimiento en cualquier momento, sin que ello afecte la licitud del tratamiento basado en el consentimiento previo a su retirada. El retiro del consentimiento para las finalidades esenciales del servicio implicará la imposibilidad de continuar utilizando la Plataforma y la cancelación de la cuenta.</p>
+
+        <h2 style={{ fontSize:18, fontWeight:700, marginTop:28, marginBottom:8 }}>6. Derechos del Titular de los Datos</h2>
+        <p style={{ color:"var(--text-dim)", marginBottom:12 }}>De conformidad con la Ley 1581 de 2012, los Usuarios de {s.app_name}, en su calidad de titulares de datos personales, tienen los siguientes derechos:</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>6.1. <strong>Derecho de acceso:</strong> conocer, actualizar y rectificar sus datos personales frente a {s.app_name}. Este derecho se puede ejercer, entre otros, frente a datos parciales, inexactos, incompletos, fraccionados, que induzcan a error, o aquellos cuyo tratamiento esté expresamente prohibido o no haya sido autorizado.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>6.2. <strong>Derecho de consulta:</strong> ser informado por {s.app_name}, previa solicitud, respecto del uso que le ha dado a sus datos personales.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>6.3. <strong>Derecho de rectificación:</strong> solicitar la corrección o actualización de sus datos personales cuando estos sean inexactos, incompletos o desactualizados.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>6.4. <strong>Derecho de supresión:</strong> solicitar la eliminación de sus datos personales de las bases de datos de {s.app_name} cuando: (a) el tratamiento no respete los principios, derechos y garantías constitucionales y legales; (b) los datos no sean necesarios para la finalidad para la cual fueron recolectados; (c) haya Finalizado el plazo de conservación; (d) el titular haya revocado su consentimiento, salvo que exista una obligación legal o contractual que impida la supresión.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>6.5. <strong>Derecho de revocatoria del consentimiento:</strong> revocar la autorización otorgada para el tratamiento de sus datos personales en cualquier momento, siempre que no exista una obligación legal o contractual que lo impida.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>6.6. <strong>Derecho a presentar quejas:</strong> presentar quejas ante la Superintendencia de Industria y Comercio (SIC), como autoridad de control en materia de protección de datos personales en Colombia, cuando considere que {s.app_name} ha vulnerado sus derechos.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>6.7. <strong>Derecho a la portabilidad:</strong> solicitar copia de sus datos personales en un formato estructurado, de uso común y lectura mecánica.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:12 }}>6.8. Para ejercer cualquiera de estos derechos, el Usuario debe enviar una solicitud por escrito al correo electrónico {s.privacy_email}, indicando: (a) nombre completo del titular; (b) documento de identidad; (c) descripción clara y precisa de los datos respecto de los cuales se busca ejercer el derecho; (d) derecho que desea ejercer; (e) dirección de correo electrónico para recibir la respuesta. {s.app_name} responderá la solicitud en un término máximo de diez (10) días hábiles contados a partir de la fecha de su recibo. Cuando no fuere posible atender la solicitud dentro de dicho término, se informará al interesado expresando los motivos de la demora y señalando la fecha en que se atenderá su solicitud, la cual en ningún caso podrá superar los cinco (5) días hábiles siguientes al vencimiento del primer término.</p>
+
+        <h2 style={{ fontSize:18, fontWeight:700, marginTop:28, marginBottom:8 }}>7. Medidas de Seguridad</h2>
+        <p style={{ color:"var(--text-dim)", marginBottom:12 }}>7.1. {s.app_name} ha adoptado medidas de seguridad técnicas, administrativas y físicas razonables y apropiadas para proteger los datos personales de los Usuarios contra acceso no autorizado, uso indebido, divulgación, alteración, pérdida o destrucción. Dichas medidas incluyen, sin limitarse a:</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>(a) Cifrado de todas las comunicaciones entre el dispositivo del Usuario y los servidores de {s.app_name} mediante protocolo TLS (Transport Layer Security) 1.2 o superior.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>(b) Almacenamiento de contraseñas mediante funciones hash criptográficas irreversibles (scrypt) con sal aleatoria, de conformidad con los estándares de la industria. Las contraseñas en texto plano nunca se almacenan ni se transmiten en ninguna circunstancia.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>(c) Cookies de sesión configuradas con los atributos HttpOnly (no accesibles mediante JavaScript), Secure (solo transmitidas a través de HTTPS) y SameSite=Strict (no enviadas en solicitudes de terceros), previniendo ataques XSS, CSRF y session hijacking.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>(d) Validación de cada sesión mediante tokens almacenados en base de datos con fecha de expiración, invalidando automáticamente sesiones que excedan el tiempo máximo de inactividad.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>(e) Aislamiento estricto de datos por Usuario: cada consulta a la base de datos incluye obligatoriamente el identificador único del Usuario autenticado (userId), garantizando que ningún Usuario pueda acceder, visualizar, modificar o eliminar datos de otro Usuario.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>(f) Rate limiting en endpoints sensibles (autenticación, creación de cuenta, recuperación de contraseña, mutaciones de datos) para prevenir ataques de fuerza bruta, denegación de servicio y abuso de la Plataforma.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>(g) Protección contra CSRF mediante validación del origen (Origin/Referer) de las solicitudes en el proxy del servidor, rechazando solicitudes de mutación que no provengan del dominio legítimo de la Plataforma.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>(h) Headers de seguridad HTTP (Content-Security-Policy, X-Frame-Options, X-Content-Type-Options, Strict-Transport-Security, Referrer-Policy, Permissions-Policy) configurados en el servidor para mitigar vectores de ataque comunes.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:12 }}>(i) Registro de eventos de autenticación (inicios de sesión, registros, cambios de contraseña) para fines de auditoría de seguridad.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:12 }}>7.2. No obstante las medidas descritas, el Usuario reconoce que ningún sistema de transmisión o almacenamiento de datos es completamente seguro. {s.app_name} no puede garantizar la seguridad absoluta y el Usuario asume los riesgos inherentes al uso de servicios en línea.</p>
+
+        <h2 style={{ fontSize:18, fontWeight:700, marginTop:28, marginBottom:8 }}>8. Transferencia y Transmisión de Datos</h2>
+        <p style={{ color:"var(--text-dim)", marginBottom:12 }}>8.1. {s.app_name} no transfiere datos personales de los Usuarios a terceros, salvo en los siguientes casos: (a) cuando sea requerido por una autoridad judicial o administrativa competente, de conformidad con la ley colombiana; (b) cuando sea estrictamente necesario para la prestación del servicio (proveedores de infraestructura, hosting, base de datos) y dichos proveedores estén obligados contractualmente a mantener la confidencialidad y seguridad de los datos; (c) cuando el Usuario haya otorgado su consentimiento expreso para una transferencia específica.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:12 }}>8.2. Los datos personales de los Usuarios se almacenan exclusivamente en servidores ubicados en la República de Colombia. {s.app_name} no realiza transferencias internacionales de datos personales a países que no proporcionen niveles adecuados de protección de datos según los estándares establecidos por la Superintendencia de Industria y Comercio de Colombia.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:12 }}>8.3. En caso de que {s.app_name} realice en el futuro una transferencia internacional de datos, lo hará únicamente a países que cuenten con un nivel adecuado de protección de datos reconocido por la autoridad colombiana competente, o bajo las salvaguardas contractuales apropiadas que garanticen un nivel de protección equivalente al establecido en la legislación colombiana.</p>
+
+        <h2 style={{ fontSize:18, fontWeight:700, marginTop:28, marginBottom:8 }}>9. Conservación de Datos</h2>
+        <p style={{ color:"var(--text-dim)", marginBottom:12 }}>9.1. {s.app_name} conserva los datos personales del Usuario durante el tiempo estrictamente necesario para cumplir con las finalidades para las cuales fueron recolectados, de acuerdo con los siguientes criterios:</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>(a) <strong>Cuenta activa:</strong> los datos se conservan mientras la cuenta del Usuario permanezca activa y no haya solicitado su cancelación.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>(b) <strong>Cancelación de cuenta:</strong> al cancelar la cuenta, los datos serán eliminados de las bases de datos activas en un plazo máximo de treinta (30) días calendario. Los respaldos de seguridad que pudieran contener datos del Usuario serán eliminados en el ciclo normal de rotación de respaldos, que no excede los noventa (90) días.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>(c) <strong>Papelera de movimientos:</strong> los movimientos eliminados por el Usuario se conservan en estado de "papelera" durante treinta (30) días, permitiendo su restauración durante ese período. Transcurrido dicho plazo, se eliminan automática y permanentemente.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>(d) <strong>Obligaciones legales:</strong> ciertos datos podrán conservarse por períodos más largos cuando sea necesario para cumplir con obligaciones legales, fiscales o regulatorias aplicables, o para proteger los derechos e intereses legítimos de {s.app_name}.</p>
+
+        <h2 style={{ fontSize:18, fontWeight:700, marginTop:28, marginBottom:8 }}>10. Datos de Menores de Edad</h2>
+        <p style={{ color:"var(--text-dim)", marginBottom:12 }}>10.1. La Plataforma no está dirigida a menores de dieciocho (18) años. {s.app_name} no recolecta, a sabiendas, datos personales de menores de edad. Si un padre, madre o tutor legal tiene conocimiento de que un menor a su cargo ha proporcionado datos personales a {s.app_name}, debe contactarnos inmediatamente a través de {s.privacy_email} para proceder a la eliminación de dichos datos.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:12 }}>10.2. En cumplimiento de la Ley 1581 de 2012, el tratamiento de datos de menores de edad requiere autorización previa del representante legal. {s.app_name} no solicita ni acepta conscientemente dicha autorización a través de la Plataforma.</p>
+
+        <h2 style={{ fontSize:18, fontWeight:700, marginTop:28, marginBottom:8 }}>11. Cookies y Tecnologías Similares</h2>
+        <p style={{ color:"var(--text-dim)", marginBottom:12 }}>11.1. {s.app_name} utiliza exclusivamente cookies técnicas esenciales para el funcionamiento de la Plataforma. Para información detallada, consulte nuestra Política de Cookies.</p>
+
+        <h2 style={{ fontSize:18, fontWeight:700, marginTop:28, marginBottom:8 }}>12. Cambios en la Política de Privacidad</h2>
+        <p style={{ color:"var(--text-dim)", marginBottom:12 }}>12.1. {s.app_name} se reserva el derecho de modificar esta Política de Privacidad en cualquier momento. Las modificaciones entrarán en vigor desde su publicación en la Plataforma. Cuando las modificaciones sean sustanciales, {s.app_name} notificará a los Usuarios mediante: (a) un aviso destacado en la Plataforma durante al menos quince (15) días; (b) un correo electrónico a la dirección registrada por el Usuario.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:12 }}>12.2. El uso continuado de la Plataforma después de la notificación de cambios constituye la aceptación de la Política modificada. Si el Usuario no está de acuerdo con los cambios, deberá cancelar su cuenta y dejar de utilizar la Plataforma.</p>
+
+        <h2 style={{ fontSize:18, fontWeight:700, marginTop:28, marginBottom:8 }}>13. Procedimiento para Consultas y Reclamos</h2>
+        <p style={{ color:"var(--text-dim)", marginBottom:12 }}>13.1. Los Usuarios podrán presentar consultas, quejas o reclamos relacionados con el tratamiento de sus datos personales a través del correo electrónico {s.privacy_email}. La solicitud debe contener como mínimo: (a) nombre completo del titular; (b) descripción clara de los hechos que dan lugar al reclamo; (c) dirección de correo electrónico para recibir la respuesta; (d) documentos que soporten la solicitud, si los hubiere.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:12 }}>13.2. {s.app_name} atenderá las consultas en un término máximo de diez (10) días hábiles. Los reclamos serán atendidos en un término máximo de quince (15) días hábiles, prorrogables por una sola vez por un período igual cuando las circunstancias lo justifiquen, informando al interesado sobre la prórroga y sus motivos.</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:12 }}>13.3. Si el Usuario considera que su solicitud no ha sido atendida satisfactoriamente, podrá presentar una queja ante la Superintendencia de Industria y Comercio (SIC) de Colombia, como autoridad nacional de protección de datos personales, a través de los canales dispuestos por dicha entidad para tal fin.</p>
+
+        <h2 style={{ fontSize:18, fontWeight:700, marginTop:28, marginBottom:8 }}>14. Vigencia</h2>
+        <p style={{ color:"var(--text-dim)", marginBottom:12 }}>Esta Política de Privacidad rige a partir de la fecha de su publicación indicada al inicio de este documento. La base de datos en la que se almacenan los datos personales tendrá una vigencia igual al tiempo de conservación de los datos indicado en la cláusula 9 de esta Política.</p>
+
+        <h2 style={{ fontSize:18, fontWeight:700, marginTop:28, marginBottom:8 }}>15. Contacto</h2>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}>Para cualquier consulta, queja, reclamo o solicitud relacionada con la protección de sus datos personales, el Usuario puede contactar a {s.app_name} a través de:</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}><strong>Correo electrónico:</strong> {s.privacy_email}</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:6 }}><strong>Dirección postal:</strong> {s.legal_address}</p>
+        <p style={{ color:"var(--text-dim)", marginBottom:12 }}><strong>Tiempo estimado de respuesta:</strong> diez (10) días hábiles para consultas, quince (15) días hábiles para reclamos.</p>
+
+      </div>
+    </div>
+  );
+}
