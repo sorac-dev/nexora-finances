@@ -68,12 +68,17 @@ export async function POST(request: NextRequest) {
   let category = await prisma.category.findFirst({ where: { userId, name: body.cat || "Otros", deletedAt: null } });
   if (!category) category = await prisma.category.findFirst({ where: { userId, name: "Otros", deletedAt: null } });
 
+  const amount = Number(body.amount) || 0;
   const tx = await prisma.transaction.create({
-    data: { userId, type: body.type || "expense", amount: Number(body.amount) || 0, description: body.name || body.description || "Movimiento", date: new Date(body.date || new Date()), installments: Number(body.installments) || 1, categoryId: category?.id || "", accountId: account.id, cardId: body.cardId || null },
+    data: { userId, type: body.type || "expense", amount, description: body.name || body.description || "Movimiento", date: new Date(body.date || new Date()), installments: Number(body.installments) || 1, categoryId: category?.id || "", accountId: account.id, cardId: body.cardId || null },
   });
 
-  const delta = body.type === "income" ? Number(body.amount) || 0 : -(Number(body.amount) || 0);
-  await prisma.financialAccount.update({ where: { id: account.id }, data: { balance: toNumber(account.balance) + delta } });
+  // Atomic update — prevents race conditions when creating multiple transactions quickly
+  const delta = body.type === "income" ? amount : -amount;
+  await prisma.financialAccount.update({
+    where: { id: account.id },
+    data: { balance: { increment: delta } },
+  });
 
   return NextResponse.json({ id: tx.id, type: tx.type, name: tx.description, cat: category?.name || "Otro", amount: toNumber(tx.amount), date: "Hoy", icon: category?.icon || "Package" }, { status: 201 });
 }

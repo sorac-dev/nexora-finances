@@ -50,8 +50,8 @@ export default function DashboardPage() {
       ]);
 
       // Normalize a day number to the next occurrence this month
+      const now = new Date();
       const nextDayDate = (day: number) => {
-        const now = new Date();
         let d = new Date(now.getFullYear(), now.getMonth(), Math.min(day, new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()));
         while (d.getTime() < now.getTime() - 86400000) d.setMonth(d.getMonth() + 1);
         return d.toISOString().split("T")[0];
@@ -67,19 +67,45 @@ export default function DashboardPage() {
       const monthIncome = txs.data.filter((t: { type: string }) => t.type === "income").reduce((s: number, t: { amount: number }) => s + t.amount, 0);
       const monthExpenses = txs.data.filter((t: { type: string }) => t.type === "expense").reduce((s: number, t: { amount: number }) => s + t.amount, 0);
 
-      // Upcoming from active subscriptions (next 5)
+      const allTxs: { name: string; type: string; cardId: string | null; date: string }[] = txs.data;
+
+      // Subscriptions — only show if not paid this cycle
       const activeSubs = subs.filter((s: { active: boolean }) => s.active);
-      // Subscriptions upcoming
-      const upcomingSubs = activeSubs.slice(0, 5).map((s: { id: string; name: string; amount: number; dueDate: string; deadline: string; icon: string }) => ({
+      const upcomingSubs = activeSubs.filter((s: { name: string; dueDate: string; amount: number }) => {
+        const dueDate = new Date(s.dueDate + "T00:00:00");
+        const cycleStart = new Date(dueDate);
+        cycleStart.setDate(cycleStart.getDate() - 30);
+        // Check if a payment was already recorded for this subscription in this cycle
+        const paid = allTxs.some((t: { name: string; type: string; date: string }) =>
+          t.type === "expense" && t.name === s.name && new Date(t.date) >= cycleStart
+        );
+        return !paid;
+      }).slice(0, 5).map((s: { id: string; name: string; amount: number; dueDate: string; deadline: string; icon: string }) => ({
         id: s.id, name: s.name, amount: s.amount, dueDate: s.dueDate, deadline: s.deadline, icon: s.icon || "FileText", source: "sub" as const,
       }));
 
-      // Credit cards — one entry per card (cut day + due day merged)
+      // Credit cards — only show when in payment window (cut passed, due not passed)
       const upcomingCards: typeof upcomingSubs = [];
+      const todayDay = now.getDate();
       cards.forEach((c: { id: string; name: string; type: string; cutDay: number; dueDay: number; icon: string }) => {
-        if (c.type === "credito" && c.cutDay && c.dueDay) {
-          upcomingCards.push({ id: c.id, name: c.name, amount: 0, dueDate: nextDayDate(c.cutDay), deadline: nextDayDate(c.dueDay), icon: c.icon || "CreditCard", source: "card" as const });
-        }
+        if (c.type !== "credito" || !c.cutDay || !c.dueDay) return;
+        // Only show if we're between cut and due (payment window)
+        if (todayDay < c.cutDay) return; // cut hasn't happened yet
+        if (todayDay > c.dueDay) return; // payment window closed
+
+        // Check if already paid this cycle
+        const cutDate = new Date(now.getFullYear(), now.getMonth(), c.cutDay);
+        if (cutDate.getTime() > now.getTime()) cutDate.setMonth(cutDate.getMonth() - 1);
+        const alreadyPaid = allTxs.some((t: { name: string; type: string; cardId: string | null; date: string }) =>
+          t.type === "expense" && t.cardId === c.id && t.name.toLowerCase().includes("pago") && new Date(t.date) >= cutDate
+        );
+        if (alreadyPaid) return;
+
+        upcomingCards.push({
+          id: c.id, name: c.name, amount: 0,
+          dueDate: nextDayDate(c.cutDay), deadline: nextDayDate(c.dueDay),
+          icon: c.icon || "CreditCard", source: "card" as const,
+        });
       });
 
       const upcoming = [...upcomingSubs, ...upcomingCards].sort((a, b) => a.dueDate.localeCompare(b.dueDate)).slice(0, 6);
@@ -165,7 +191,7 @@ export default function DashboardPage() {
             <div className="txt-strong" style={{ fontSize: 15, marginTop: 4 }}>
               {data.upcomingPayments.length}
             </div>
-            <div className="txt-faint" style={{ fontSize: 10 }}>Próximos pagos</div>
+            <div className="txt-faint" style={{ fontSize: 10 }}>Pagos pendientes</div>
           </div>
         </Link>
         <Link href="/goals" style={{ flex: 1, textDecoration: "none" }}>
@@ -221,7 +247,7 @@ export default function DashboardPage() {
       {data.upcomingPayments.length > 0 && (
         <>
           <div className="row" style={{ marginTop: 16 }}>
-            <div className="eyebrow" style={{ margin: 0 }}>Próximos pagos</div>
+            <div className="eyebrow" style={{ margin: 0 }}>Pagos pendientes</div>
             <Link href="/calendar" className="txt-dim" style={{ fontSize: 12, textDecoration: "none" }}>Calendario</Link>
           </div>
           <div className="glass-card">
@@ -229,37 +255,29 @@ export default function DashboardPage() {
               let statusColor = "var(--text-dim)";
               let statusText = "";
               try {
-                // Get raw day-of-month from the stored dates
-                const cutDay = parseInt(p.dueDate.split("-")[2]) || 1;
-                const limitDay = parseInt(p.deadline.split("-")[2]) || 1;
-
-                // Days until a specific day in the current month (no month advancing for cut)
-                const now = new Date();
-                const todayDay = now.getDate();
-
-                // cutDays: how many days until the cut day THIS month
-                const cutDays = cutDay - todayDay;
-                const cutPassed = cutDays <= 0;
-
-                // limitDays: days until limit day (advances to next month if passed)
-                let limitDate = new Date(now.getFullYear(), now.getMonth(), limitDay);
-                if (limitDate.getTime() < now.getTime() - 86400000) {
-                  limitDate.setMonth(limitDate.getMonth() + 1);
-                }
-                const limitDays = Math.ceil((limitDate.getTime() - now.getTime()) / 86400000);
-
-                if (!cutPassed) {
-                  // Before cut — show cut countdown
-                  if (cutDays === 0) { statusColor = "#FF9F43"; statusText = "Corte hoy"; }
-                  else if (cutDays === 1) { statusColor = "#FF9F43"; statusText = "Corte mañana"; }
-                  else if (cutDays <= 3) { statusColor = "#FF9F43"; statusText = `Corte en ${cutDays}d`; }
-                  else { statusColor = "var(--c-save)"; statusText = `Corte en ${cutDays}d`; }
-                } else {
-                  // After cut — show payment window
+                if (p.source === "card") {
+                  // Credit card: show payment window availability
+                  const limitDay = parseInt(p.deadline.split("-")[2]) || 1;
+                  const now = new Date();
+                  let limitDate = new Date(now.getFullYear(), now.getMonth(), limitDay);
+                  if (limitDate.getTime() < now.getTime() - 86400000) {
+                    limitDate.setMonth(limitDate.getMonth() + 1);
+                  }
+                  const limitDays = Math.ceil((limitDate.getTime() - now.getTime()) / 86400000);
                   if (limitDays <= 0) { statusColor = "#FF6B6B"; statusText = "Pago vencido"; }
-                  else if (limitDays === 1) { statusColor = "#FF6B6B"; statusText = "Último día para pagar"; }
-                  else if (limitDays <= 3) { statusColor = "#FF6B6B"; statusText = `Pagar antes de ${limitDays}d`; }
-                  else { statusColor = "#FF9F43"; statusText = `Pagar en ${limitDays}d`; }
+                  else if (limitDays === 1) { statusColor = "#FF6B6B"; statusText = "Ultimo dia para pagar"; }
+                  else if (limitDays <= 3) { statusColor = "#FF6B6B"; statusText = `Pagar antes de ${limitDays} dias`; }
+                  else { statusColor = "#FF9F43"; statusText = `Disponible ${limitDays} dias para pagar`; }
+                } else {
+                  // Subscription: show due date status
+                  const dueDay = new Date(p.dueDate + "T00:00:00");
+                  const now = new Date();
+                  const daysUntil = Math.ceil((dueDay.getTime() - now.getTime()) / 86400000);
+                  if (daysUntil < 0) { statusColor = "#FF6B6B"; statusText = `Vencido hace ${Math.abs(daysUntil)}d`; }
+                  else if (daysUntil === 0) { statusColor = "#FF9F43"; statusText = "Vence hoy"; }
+                  else if (daysUntil === 1) { statusColor = "#FF9F43"; statusText = "Vence manana"; }
+                  else if (daysUntil <= 3) { statusColor = "#FF9F43"; statusText = `Vence en ${daysUntil} dias`; }
+                  else { statusColor = "var(--text-dim)"; statusText = `Vence en ${daysUntil} dias`; }
                 }
               } catch { statusText = ""; }
 
@@ -322,7 +340,7 @@ export default function DashboardPage() {
               <div className="glass" style={{ padding: 14, borderRadius: 16, marginBottom: 18, textAlign: "left" }}>
                 {data.income > 0 && <div style={{ padding: "6px 0", fontSize: 14, display: "flex", gap: 8 }}><span style={{ color: "var(--c-save)" }}>•</span>Ingresos este mes: {fmt(data.income)}</div>}
                 {data.expenses > 0 && <div style={{ padding: "6px 0", fontSize: 14, display: "flex", gap: 8 }}><span style={{ color: "#FF6B6B" }}>•</span>Gastos este mes: {fmt(data.expenses)}</div>}
-                {data.upcomingPayments.length > 0 && <div style={{ padding: "6px 0", fontSize: 14, display: "flex", gap: 8 }}><span style={{ color: "#FF9F43" }}>•</span>{data.upcomingPayments.length} pagos próximos</div>}
+                {data.upcomingPayments.length > 0 && <div style={{ padding: "6px 0", fontSize: 14, display: "flex", gap: 8 }}><span style={{ color: "#FF9F43" }}>•</span>{data.upcomingPayments.length} pagos pendientes</div>}
                 {data.goals.length > 0 && <div style={{ padding: "6px 0", fontSize: 14, display: "flex", gap: 8 }}><span style={{ color: "var(--c-blue)" }}>•</span>{data.goals.length} metas activas</div>}
               </div>
               <button className="btn btn-primary" onClick={() => setShowOpeningModal(false)}>Entendido</button>

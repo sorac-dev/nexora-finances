@@ -46,6 +46,7 @@ export default function GastosFijosPage() {
   const [selected, setSelected] = useState<Sub | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [paying, setPaying] = useState(false);
+  const [paidThisCycle, setPaidThisCycle] = useState(false);
   const [swipedId, setSwipedId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const { guardWithPin, pinModalProps } = usePinGuard();
@@ -124,8 +125,25 @@ export default function GastosFijosPage() {
     }
   }, [subs]);
 
-  function openDetail(s: Sub) { setSelected(s); }
-  function closeDetail() { setSelected(null); }
+  function openDetail(s: Sub) {
+    setSelected(s);
+    setPaidThisCycle(false);
+    // Check if already paid this cycle
+    fetch("/api/transactions?limit=50")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => {
+        if (!d?.data) return;
+        const now = new Date();
+        const cycleStart = new Date(now);
+        cycleStart.setDate(cycleStart.getDate() - 35); // covers monthly cycles
+        const paid = d.data.some((t: { name: string; type: string; date: string }) =>
+          t.type === "expense" && t.name === s.name && new Date(t.date) >= cycleStart
+        );
+        setPaidThisCycle(paid);
+      })
+      .catch(() => {});
+  }
+  function closeDetail() { setSelected(null); setPaidThisCycle(false); }
 
   // ── Create (steps) ──────────────────────────────────────────────
   function startCreate() {
@@ -206,9 +224,10 @@ export default function GastosFijosPage() {
       const r = await fetch(`/api/subscriptions/${selected.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dueDate: nd, deadline: ndl }) });
       if (r.ok) {
         const u = await r.json();
+        setPaidThisCycle(true);
         setSelected({ ...selected, dueDate: u.dueDate, deadline: u.deadline });
         setSubs((prev) => prev.map((s) => s.id === selected.id ? { ...s, dueDate: u.dueDate, deadline: u.deadline } : s));
-        toast.success(`Pago registrado. Próximo: ${fmtDay(nd)}`);
+        toast.success(`Pago registrado. Proximo: ${fmtDay(nd)}`);
       }
     } catch { toast.error("Error"); }
     finally { setPaying(false); }
@@ -354,9 +373,21 @@ export default function GastosFijosPage() {
                 </div>
               </div>
 
-              <Button onClick={handlePay} disabled={paying} style={{ marginBottom: 8 }}>
-                <Icon name="CheckCircle" size={16} /> {paying ? "Registrando..." : selected.isVariable ? "Registrar pago (variable)" : "Registrar pago"}
-              </Button>
+              {paidThisCycle ? (
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 8, justifyContent: "center",
+                  padding: "10px", marginBottom: 8, borderRadius: 14,
+                  background: "rgba(52,199,89,0.08)", border: "1px solid rgba(52,199,89,0.2)",
+                  color: "var(--c-save)", fontWeight: 600, fontSize: 14,
+                }}>
+                  <Icon name="CheckCircle" size={18} color="var(--c-save)" />
+                  Ya pagado este ciclo
+                </div>
+              ) : (
+                <Button onClick={handlePay} disabled={paying} style={{ marginBottom: 8 }}>
+                  <Icon name="CheckCircle" size={16} /> {paying ? "Registrando..." : selected.isVariable ? "Registrar pago (variable)" : "Registrar pago"}
+                </Button>
+              )}
 
               <Button type="button" variant="ghost" onClick={closeDetail}>Cerrar</Button>
             </motion.div>
