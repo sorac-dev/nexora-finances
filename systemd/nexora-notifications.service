@@ -4,6 +4,8 @@ After=network.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/curl -s http://localhost:3004/api/notifications/check
+; El token se genera a partir de BETTER_AUTH_SECRET (primeros 16 chars).
+; Cambia CRON_TOKEN por el valor real de tu .env o usa CRON_SECRET para un token personalizado.
+ExecStart=/usr/bin/curl -s "http://localhost:3004/api/cron/notifications?token=${CRON_TOKEN}"
 WorkingDirectory=/var/www/nexora-finances
 User=root
