@@ -61,8 +61,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {showTabBar && <TabBar />}
 
-      {/* FAB — rendered outside scroll container, fixed to viewport */}
-      {pathname.startsWith("/movements") && !pathname.startsWith("/movements/new") && !pathname.includes("/movements/") && (
+      {/* FAB — shown on home + movements list */}
+      {(pathname === "/" || (pathname.startsWith("/movements") && !pathname.startsWith("/movements/new") && !pathname.includes("/movements/"))) && (
         <Link href="/movements/new" className="fab">+</Link>
       )}
     </div>
