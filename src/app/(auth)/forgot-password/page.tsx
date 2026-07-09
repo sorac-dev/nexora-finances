@@ -12,7 +12,7 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState(""); const [turnstileReset, setTurnstileReset] = useState(0);
   const [retryAfter, setRetryAfter] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -157,7 +157,7 @@ export default function ForgotPasswordPage() {
                 <input className="nexora-input" style={{ paddingLeft: 40 }} type="email" placeholder="tu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} />
               </div>
               {/* Turnstile */}
-              <TurnstileWidget
+              <TurnstileWidget resetKey={turnstileReset}
                 onVerify={(token) => setTurnstileToken(token)}
                 onExpire={() => setTurnstileToken("")}
               />

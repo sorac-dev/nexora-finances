@@ -17,6 +17,7 @@ export default function LoginPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState("");
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileReset, setTurnstileReset] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -45,7 +46,7 @@ export default function LoginPage() {
       });
       if (!res.ok) {
         setServerError("Email o contraseña incorrectos. Intenta de nuevo.");
-        setTurnstileToken("");
+        setTurnstileToken(""); setTurnstileReset((n) => n + 1);
         return;
       }
 
@@ -198,7 +199,7 @@ export default function LoginPage() {
             </div>
 
             {/* Turnstile */}
-            <TurnstileWidget
+            <TurnstileWidget resetKey={turnstileReset}
               onVerify={(token) => setTurnstileToken(token)}
               onExpire={() => setTurnstileToken("")}
             />

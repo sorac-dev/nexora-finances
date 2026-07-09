@@ -6,6 +6,7 @@ interface TurnstileWidgetProps {
   onVerify: (token: string) => void;
   onError?: () => void;
   onExpire?: () => void;
+  resetKey?: number; // increment to force widget reset from parent
 }
 
 declare global {
@@ -27,7 +28,7 @@ declare global {
 
 const SITEKEY = process.env.NEXT_PUBLIC_TURNSTILE_SITEKEY || "";
 
-export function TurnstileWidget({ onVerify, onError, onExpire }: TurnstileWidgetProps) {
+export function TurnstileWidget({ onVerify, onError, onExpire, resetKey }: TurnstileWidgetProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetId = useRef<string>("");
   const [loaded, setLoaded] = useState(false);
@@ -59,6 +60,12 @@ export function TurnstileWidget({ onVerify, onError, onExpire }: TurnstileWidget
     script.onload = () => setLoaded(true);
     document.head.appendChild(script);
   }, []);
+
+  // Reset widget when parent requests it (e.g., after failed login)
+  useEffect(() => {
+    if (resetKey === undefined || !widgetId.current || !window.turnstile) return;
+    window.turnstile.reset(widgetId.current);
+  }, [resetKey]);
 
   // Render widget ONCE — callbacks live in refs so they never go stale
   useEffect(() => {

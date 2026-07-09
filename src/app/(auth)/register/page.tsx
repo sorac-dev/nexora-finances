@@ -20,7 +20,7 @@ export default function RegisterPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [serverError, setServerError] = useState("");
-  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState(""); const [turnstileReset, setTurnstileReset] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
@@ -188,7 +188,7 @@ export default function RegisterPage() {
             </div>
 
             {/* Turnstile */}
-            <TurnstileWidget
+            <TurnstileWidget resetKey={turnstileReset}
               onVerify={(token) => setTurnstileToken(token)}
               onExpire={() => setTurnstileToken("")}
             />
